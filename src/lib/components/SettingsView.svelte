@@ -1,10 +1,11 @@
 <script lang="ts">
   // The Settings page: playback, integrations, accessibility, shortcuts, troubleshooting, about.
-  import { Copy, FolderOpen } from "@lucide/svelte";
+  import { Copy, Download, FolderOpen, RefreshCw } from "@lucide/svelte";
   import ShortcutList from "./ShortcutList.svelte";
   import { openLogFolder, type AppSettings } from "$lib/ipc";
   import { settings } from "$lib/stores/settings.svelte";
   import { toasts } from "$lib/stores/toast.svelte";
+  import { updates } from "$lib/stores/updates.svelte";
 
   $effect(() => {
     settings.load();
@@ -30,6 +31,13 @@
       key: "discordPresence",
       label: "Show what you're listening to on Discord",
       help: "\"Listening to…\" on your Discord profile while music plays. Needs the Discord app running on this computer.",
+    },
+  ];
+  const UPDATES: Toggle[] = [
+    {
+      key: "checkForUpdates",
+      label: "Check for updates automatically",
+      help: "Look for a new version on GitHub each time the app starts, and offer to install it.",
     },
   ];
   const TROUBLESHOOTING: Toggle[] = [
@@ -135,6 +143,41 @@
     <h2 id="h-keys">Keyboard shortcuts</h2>
     <p class="note">Press <kbd>?</kbd> anywhere to see these.</p>
     <ShortcutList />
+  </section>
+
+  <section aria-labelledby="h-updates">
+    <h2 id="h-updates">Updates</h2>
+    {@render toggles(UPDATES)}
+    <div class="actions">
+      {#if updates.status === "available" && updates.available}
+        <button class="modal-pill" onclick={() => updates.offer()} disabled={!updates.canInstall}>
+          <Download size={15} /> Install version {updates.available.version}
+        </button>
+      {:else}
+        <button
+          class="modal-pill"
+          onclick={() => updates.check()}
+          disabled={updates.status === "checking" || updates.status === "installing"}
+        >
+          <RefreshCw size={15} /> Check for updates
+        </button>
+      {/if}
+    </div>
+    <p class="note" role="status">
+      {#if updates.status === "checking"}
+        Checking…
+      {:else if updates.status === "current"}
+        You're on the latest version.
+      {:else if updates.status === "available" && updates.available}
+        Version {updates.available.version} is available.{updates.canInstall
+          ? ""
+          : " Updates install only in the installed app, not a development build."}
+      {:else if updates.status === "installing"}
+        Downloading update{updates.progress != null ? ` (${Math.round(updates.progress * 100)}%)` : ""}…
+      {:else if updates.status === "error"}
+        Couldn't check for updates. Check your internet connection and try again.
+      {/if}
+    </p>
   </section>
 
   <section aria-labelledby="h-trouble">

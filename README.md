@@ -33,6 +33,8 @@ Windows 10/11 (x64) only for now.
 2. Run it. Windows SmartScreen may warn about an unknown publisher because the installer isn't code-signed. Choose **More info → Run anyway**.
 3. Open the app and sign in to YouTube Music when prompted.
 
+The app keeps itself up to date. When a new version is out, it offers to install it at startup, and you can also check from **Settings → Updates**. Every update is signed, and the app won't install one whose signature doesn't match.
+
 ## Privacy
 
 - You sign in on YouTube's own sign-in page, shown inside the app. Your password never passes through this app's code.
@@ -65,6 +67,19 @@ pnpm check          # type-check the frontend
 | `src-tauri/scripts/player-bridge.js` | Script injected into the hidden YouTube Music page that does the actual playback |
 
 Real API responses captured from your own account during development go in `src/lib/ytm/__fixtures__/raw/`. That folder is git-ignored because it contains personal data.
+
+## Releasing
+
+Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)) whenever a version tag is pushed:
+
+```powershell
+npm version 0.2.0 -m "Release %s"    # bumps package.json, commits and tags v0.2.0
+git push --follow-tags
+```
+
+`package.json` holds the app's only version number, and `tauri.conf.json` reads it from there. The workflow checks the tag matches it, runs the tests, builds and signs the installer, and publishes a GitHub Release with the installer, its signature and `latest.json`. Installed copies of the app read `latest.json` from the latest release to find updates.
+
+Signing needs the updater's private key, kept outside the repo, in two repository secrets: `TAURI_SIGNING_PRIVATE_KEY` (the key file's contents) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. If that key is lost, installed copies can't update any more and have to be reinstalled by hand, so keep a backup.
 
 ## Contributing
 

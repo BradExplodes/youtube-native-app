@@ -24,6 +24,7 @@
   import { nav } from "$lib/stores/nav.svelte";
   import { player } from "$lib/stores/player.svelte";
   import { ui } from "$lib/stores/ui.svelte";
+  import { updates } from "$lib/stores/updates.svelte";
   import { captureFixtures } from "$lib/ytm/capture";
 
   onMount(() => {
@@ -39,7 +40,7 @@
     // Keyboard shortcuts (see $lib/shortcuts.ts). Bubbling phase: lists, menus and
     // popups handle their own keys first.
     window.addEventListener("keydown", handleShortcut);
-    settings.load();
+    settings.load().then(() => updates.atStartup());
     // Our own right-click menus replace the browser's (Back, Reload, Inspect…), except in
     // text boxes, where cut/copy/paste is useful. Shift+right-click keeps it in development.
     const onContextMenu = (e: MouseEvent) => {

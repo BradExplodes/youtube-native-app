@@ -17,6 +17,8 @@ export type Dialog =
       title: string;
       message: string;
       confirm: string;
+      /** Show the confirm button in red (default), for something that can't be undone. */
+      danger?: boolean;
       onconfirm: () => Promise<unknown> | void;
     };
 

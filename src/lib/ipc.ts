@@ -74,6 +74,7 @@ export interface AppSettings {
   discordPresence: boolean;
   audioOnly: boolean;
   verboseLogs: boolean;
+  checkForUpdates: boolean;
 }
 
 export interface AppInfo {

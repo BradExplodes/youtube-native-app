@@ -26,6 +26,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["sync", "time"] }
 tauri-plugin-log = "2"
 tauri-plugin-window-state = "2"
+tauri-plugin-updater = "2"
 log = "0.4"
 
 [target.'cfg(windows)'.dependencies]

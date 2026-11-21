@@ -42,6 +42,7 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(log.build())
         .plugin(
             // Size, position and maximized state of our UI, restored at the next start.

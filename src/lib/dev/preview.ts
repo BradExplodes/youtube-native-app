@@ -75,7 +75,7 @@ export function install() {
 
   // Which songs the pretend playlists hold ("playlistId|videoId"), for the "Add to playlist" ticks.
   const inPlaylist = new Set<string>();
-  let settings = { discordPresence: true, audioOnly: true, verboseLogs: false };
+  let settings = { discordPresence: true, audioOnly: true, verboseLogs: false, checkForUpdates: true };
 
   mockIPC(
     (cmd, args) => {
@@ -173,6 +173,9 @@ export function install() {
             dataDir: "(none in the preview)",
             debug: true,
           };
+        case "plugin:updater|check":
+          // A pretend newer release, so the Settings page's update section can be seen.
+          return { rid: 1, currentVersion: "0.1.0", version: "0.2.0", date: null, body: "", rawJson: {} };
         default:
           return null;
       }

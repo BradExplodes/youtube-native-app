@@ -18,6 +18,9 @@ pub struct Settings {
     pub audio_only: bool,
     /// Write debug detail to the log file, for tracking down a problem.
     pub verbose_logs: bool,
+    /// Look for a new version on GitHub when the app starts (the Settings page can
+    /// always check by hand).
+    pub check_for_updates: bool,
 }
 
 impl Default for Settings {
@@ -26,6 +29,7 @@ impl Default for Settings {
             discord_presence: true,
             audio_only: true,
             verbose_logs: false,
+            check_for_updates: true,
         }
     }
 }

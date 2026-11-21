@@ -23,6 +23,7 @@
     "allow-open-log-folder",
     "allow-ui-log",
     "allow-history-recent",
-    "allow-history-stats"
+    "allow-history-stats",
+    "updater:default"
   ]
 }

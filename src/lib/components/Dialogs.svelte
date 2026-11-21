@@ -114,7 +114,7 @@
       <p class="message">{d.message}</p>
       <footer>
         <button class="btn-ghost" onclick={() => dialog.close()}>Cancel</button>
-        <button class="btn-primary danger" disabled={busy} onclick={() => confirm(d)}>{busy ? "Working…" : d.confirm}</button>
+        <button class="btn-primary" class:danger={d.danger ?? true} disabled={busy} onclick={() => confirm(d)}>{busy ? "Working…" : d.confirm}</button>
       </footer>
     </div>
   </Modal>
