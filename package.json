@@ -1,7 +1,8 @@
 {
   "name": "youtube-music-native",
   "version": "0.1.0",
-  "description": "",
+  "description": "Lightweight Windows desktop client for YouTube Music",
+  "repository": "github:BradExplodes/youtube-native-app",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
