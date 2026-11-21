@@ -5,8 +5,24 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
     "allow-player-status",
     "allow-player-show-login",
-    "allow-player-cmd"
+    "allow-player-cmd",
+    "allow-browse",
+    "allow-ytm-call",
+    "allow-dev-save-fixture",
+    "allow-dev-log",
+    "allow-settings-get",
+    "allow-settings-set",
+    "allow-app-info",
+    "allow-open-log-folder",
+    "allow-ui-log",
+    "allow-history-recent",
+    "allow-history-stats"
   ]
 }

@@ -3,3 +3,11 @@
 // See: https://svelte.dev/docs/kit/single-page-apps
 // See: https://v2.tauri.app/start/frontend/sveltekit/ for more info
 export const ssr = false;
+
+export async function load() {
+  // Development only: opened in a plain browser rather than the app, fake the app's
+  // side so the UI can be previewed (see $lib/dev/preview.ts).
+  if (import.meta.env.DEV && !("__TAURI_INTERNALS__" in window)) {
+    (await import("$lib/dev/preview")).install();
+  }
+}

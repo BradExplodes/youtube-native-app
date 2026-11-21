@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dev-save-fixture"
+description = "Enables the dev_save_fixture command without any pre-configured scope."
+commands.allow = ["dev_save_fixture"]
+
+[[permission]]
+identifier = "deny-dev-save-fixture"
+description = "Denies the dev_save_fixture command without any pre-configured scope."
+commands.deny = ["dev_save_fixture"]

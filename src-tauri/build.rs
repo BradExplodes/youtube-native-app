@@ -8,6 +8,17 @@ fn main() {
             "player_status",
             "player_show_login",
             "player_cmd",
+            "browse",
+            "ytm_call",
+            "dev_save_fixture",
+            "dev_log",
+            "settings_get",
+            "settings_set",
+            "app_info",
+            "open_log_folder",
+            "ui_log",
+            "history_recent",
+            "history_stats",
         ]),
     ))
     .expect("failed to run tauri-build");

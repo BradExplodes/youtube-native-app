@@ -1,9 +1,32 @@
 // Shared player state for the UI, kept in sync with the hidden player window.
-import { onAuth, onPlayback, playerStatus, type Playback } from "$lib/ipc";
+import { onAuth, onPlayback, onQueue, playerStatus, type Playback, type QueueItem } from "$lib/ipc";
+
+const CONTEXT_KEY = "ytmn:context";
+function readContext(): string | null {
+  try {
+    return localStorage.getItem(CONTEXT_KEY);
+  } catch {
+    return null;
+  }
+}
 
 class PlayerStore {
   loggedIn = $state<boolean | null>(null);
   playback = $state.raw<Playback | null>(null);
+  queue = $state.raw<QueueItem[]>([]);
+  /** The page (browse id) playback was started from, to mark its tab and list.
+   *  Remembered across restarts, like the last song itself. */
+  #context = $state<string | null>(readContext());
+  get context() {
+    return this.#context;
+  }
+  set context(browseId: string | null) {
+    this.#context = browseId;
+    try {
+      if (browseId) localStorage.setItem(CONTEXT_KEY, browseId);
+      else localStorage.removeItem(CONTEXT_KEY);
+    } catch {}
+  }
   /** When `playback` arrived (performance.now()), to move the progress bar smoothly between updates. */
   receivedAt = $state(0);
 
@@ -55,6 +78,7 @@ class PlayerStore {
     const s = await playerStatus();
     this.loggedIn = s.loggedIn;
     this.set(s.playback);
+    this.queue = s.queue?.items ?? [];
   }
 
   /** Subscribe to the player and catch up whenever the window becomes visible again. */
@@ -62,6 +86,7 @@ class PlayerStore {
     const unlisten = await Promise.all([
       onAuth((v) => (this.loggedIn = v)),
       onPlayback((p) => this.set(p)),
+      onQueue((items) => (this.queue = items)),
     ]);
     await this.refresh();
     // Rust skips progress events while we're minimized, so re-sync on restore.

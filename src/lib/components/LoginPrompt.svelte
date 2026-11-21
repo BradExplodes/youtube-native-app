@@ -3,16 +3,18 @@
   let opened = $state(false);
 </script>
 
+<!-- Sits below the title bar, so the window can still be moved and closed. -->
 <div class="overlay">
-  <div class="card">
+  <div class="glow"></div>
+  <div class="modal-card card">
+    <img class="mark" src="/logo.png" alt="" width="64" height="64" draggable="false" />
     <h1>Sign in to YouTube Music</h1>
     <p>
       A YouTube window will open. It may first ask about cookies (pick whichever you like), then
-      Google sign-in. Once you're signed in it closes by itself, and you only need to do this
-      once.
+      Google sign-in. Once you're signed in it closes by itself, and you only need to do this once.
     </p>
     <button
-      class="primary"
+      class="btn-primary"
       onclick={async () => {
         opened = true;
         await showLogin();
@@ -21,7 +23,7 @@
       {opened ? "Open sign-in window again" : "Sign in"}
     </button>
     {#if opened}
-      <p class="hint">Waiting for you to finish signing in…</p>
+      <p class="eyebrow hint">Waiting for you to finish signing in…</p>
     {/if}
   </div>
 </div>
@@ -29,38 +31,46 @@
 <style>
   .overlay {
     position: fixed;
-    inset: 0;
+    inset: var(--titlebar) 0 0 0;
+    z-index: 30;
     display: grid;
     place-items: center;
-    background: color-mix(in srgb, var(--bg) 92%, transparent);
-    z-index: 10;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .glow {
+    position: absolute;
+    width: 720px;
+    height: 720px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--accent-glow), transparent 65%);
+    opacity: 0.6;
   }
   .card {
-    width: min(420px, calc(100% - 32px));
-    padding: 28px;
-    border-radius: var(--radius);
-    background: var(--panel);
-    border: 1px solid var(--line);
+    align-items: center;
+    width: min(440px, calc(100% - 32px));
+    padding: 36px 32px 32px;
     text-align: center;
   }
+  .mark {
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 20px;
+    filter: drop-shadow(0 0 24px var(--accent-glow));
+  }
   h1 {
-    font-size: 20px;
-    margin: 0 0 8px;
+    margin: 0 0 10px;
+    font-size: 24px;
+    font-weight: var(--weight-display);
+    letter-spacing: -0.02em;
   }
   p {
+    margin: 0 0 24px;
     color: var(--muted);
-    line-height: 1.5;
-    margin: 0 0 20px;
-  }
-  .primary {
-    padding: 10px 28px;
-    border-radius: 999px;
-    background: var(--accent);
-    color: var(--accent-ink);
-    font-weight: 600;
+    line-height: 1.55;
   }
   .hint {
-    margin: 16px 0 0;
-    font-size: 12px;
+    margin: 18px 0 0;
   }
 </style>
