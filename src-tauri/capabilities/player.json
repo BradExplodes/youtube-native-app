@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "player-bridge",
+  "description": "The hidden music.youtube.com window may only report its state. Google sign-in pages and every other origin get no access at all.",
+  "windows": ["player"],
+  "remote": {
+    "urls": ["https://music.youtube.com/*"]
+  },
+  "permissions": ["allow-player-event"]
+}
