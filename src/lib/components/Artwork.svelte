@@ -9,23 +9,33 @@
 
   interface Props {
     src?: string | null;
+    /** Tried if `src` fails to load: the original of a resized image (some don't resize). */
+    fallback?: string | null;
     kind?: ArtKind;
     /** Icon size in px; by default it scales with the box. */
     icon?: number;
     lazy?: boolean;
   }
-  let { src, kind = "song", icon, lazy = false }: Props = $props();
+  let { src, fallback, kind = "song", icon, lazy = false }: Props = $props();
 
   const ICONS = { album: Disc3, playlist: ListMusic, artist: MicVocal, song: Music, video: Clapperboard };
   const Icon = $derived(ICONS[kind]);
 
-  let failed = $state<string | null>(null);
-  const show = $derived(!!src && failed !== src);
+  let failed = $state<string[]>([]);
+  const url = $derived([src, fallback].find((u) => !!u && !failed.includes(u)) ?? null);
+  const show = $derived(!!url);
 </script>
 
 <span class="artwork" class:empty={!show}>
   {#if show}
-    <img {src} alt="" loading={lazy ? "lazy" : undefined} decoding="async" draggable="false" onerror={() => (failed = src ?? null)} />
+    <img
+      src={url}
+      alt=""
+      loading={lazy ? "lazy" : undefined}
+      decoding="async"
+      draggable="false"
+      onerror={() => url && (failed = [...failed, url])}
+    />
   {:else}
     <span class="icon" style:--icon={icon ? `${icon}px` : undefined}>
       <Icon size="100%" strokeWidth={1.6} />

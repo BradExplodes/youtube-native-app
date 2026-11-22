@@ -10,11 +10,11 @@
 {#if covers.length >= 4}
   <span class="mosaic">
     {#each covers.slice(0, 4) as src, i (i)}
-      <span class="cell"><Artwork src={sized(src, 226)} kind="song" lazy /></span>
+      <span class="cell"><Artwork src={sized(src, 226)} fallback={src} kind="song" lazy /></span>
     {/each}
   </span>
 {:else}
-  <Artwork src={sized(covers[0], 400)} kind="playlist" lazy />
+  <Artwork src={sized(covers[0], 400)} fallback={covers[0]} kind="playlist" lazy />
 {/if}
 
 <style>

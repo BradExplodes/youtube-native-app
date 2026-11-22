@@ -34,7 +34,12 @@
     {#if tile.covers?.length}
       <Mosaic covers={tile.covers} />
     {:else}
-      <Artwork src={tile.kind === "video" ? tile.thumbnail : sized(tile.thumbnail, 400)} kind={tile.kind} lazy />
+      <Artwork
+        src={tile.kind === "video" ? tile.thumbnail : sized(tile.thumbnail, 400)}
+        fallback={tile.thumbnail}
+        kind={tile.kind}
+        lazy
+      />
     {/if}
     {#if playable}
       <span class="play" aria-hidden="true"><Play size={20} fill="currentColor" strokeWidth={0} /></span>

@@ -36,7 +36,7 @@
       {#each albums.items as a (a.browseId)}
         <button class="card" onclick={() => nav.go({ kind: "list", browseId: a.browseId })}>
           <span class="art">
-            <Artwork src={sized(a.thumbnail, 400)} kind="album" lazy />
+            <Artwork src={sized(a.thumbnail, 400)} fallback={a.thumbnail} kind="album" lazy />
           </span>
           <span class="title truncate">{a.title}</span>
           <span class="sub truncate">{a.subtitle}</span>
