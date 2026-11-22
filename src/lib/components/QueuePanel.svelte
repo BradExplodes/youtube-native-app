@@ -1,7 +1,8 @@
 <script lang="ts">
   import { arrowNav } from "$lib/a11y";
   import Artwork from "./Artwork.svelte";
-  import { X } from "@lucide/svelte";
+  import { GripVertical, ListStart, X } from "@lucide/svelte";
+  import { tick } from "svelte";
   import Equalizer from "./Equalizer.svelte";
   import { playerCmd, type QueueItem } from "$lib/ipc";
   import { songMenu } from "$lib/menus";
@@ -9,25 +10,147 @@
   import { player } from "$lib/stores/player.svelte";
   import { ui } from "$lib/stores/ui.svelte";
 
+  type Entry = { item: QueueItem; index: number };
+
   // Indexes are positions in YouTube Music's queue, which is what a jump needs.
   const indexed = $derived(player.queue.map((item, index) => ({ item, index })));
-  const currentAt = $derived(indexed.findIndex((e) => e.item.current));
+  // Which one is playing. The queue's own marker can lag behind the player (its update
+  // comes separately), so when the player is on a track that's in the queue, believe
+  // the player: the copy nearest the marker, if the track is in there twice.
+  const currentAt = $derived.by(() => {
+    const marked = indexed.findIndex((e) => e.item.current);
+    const id = player.playback?.videoId;
+    if (!id || indexed[marked]?.item.videoId === id) return marked;
+    let best = -1;
+    for (const e of indexed) {
+      if (e.item.videoId !== id) continue;
+      if (best < 0 || Math.abs(e.index - marked) < Math.abs(best - marked)) best = e.index;
+    }
+    return best >= 0 ? best : marked;
+  });
   const now = $derived(currentAt >= 0 ? indexed[currentAt] : null);
   const after = $derived(currentAt >= 0 ? indexed.slice(currentAt + 1) : indexed);
   const nextUp = $derived(after.filter((e) => !e.item.autoplay));
   const autoplay = $derived(after.filter((e) => e.item.autoplay));
 
   const jump = (index: number, item: QueueItem) => playerCmd({ action: "queueJump", index, videoId: item.videoId });
+
+  // ---------------------------------------------------------------- reordering
+  // "Next up" rows can be dragged to a new place, or moved with Alt+Up/Down. (Autoplay
+  // is YouTube Music's own suggestions, kept apart: it can't be reordered.)
+  let scroller = $state<HTMLDivElement>();
+  /** Positions within `nextUp`; `dy` is how far the row has been dragged. */
+  let drag = $state<{ from: number; to: number; dy: number; height: number } | null>(null);
+  let press: { pos: number; pointerId: number; startY: number; startScroll: number; el: HTMLElement } | null = null;
+  let lastY = 0;
+  let scrollFrame = 0;
+
+  function moveTo(fromPos: number, toPos: number) {
+    const a = nextUp[fromPos];
+    const b = nextUp[toPos];
+    if (a && b && a !== b) player.moveInQueue(a.index, b.index);
+  }
+
+  function onPointerDown(e: PointerEvent, pos: number) {
+    if (e.button !== 0 || !scroller) return;
+    press = { pos, pointerId: e.pointerId, startY: e.clientY, startScroll: scroller.scrollTop, el: e.currentTarget as HTMLElement };
+  }
+
+  function updateDrag() {
+    if (!press || !drag || !scroller) return;
+    const dy = lastY - press.startY + (scroller.scrollTop - press.startScroll);
+    const to = Math.max(0, Math.min(nextUp.length - 1, drag.from + Math.round(dy / drag.height)));
+    drag = { ...drag, dy, to };
+  }
+
+  function onPointerMove(e: PointerEvent) {
+    if (!press || e.pointerId !== press.pointerId) return;
+    // Released somewhere we didn't hear about: not a drag.
+    if (!(e.buttons & 1)) return endDrag(false);
+    lastY = e.clientY;
+    if (!drag) {
+      if (Math.abs(e.clientY - press.startY) < 5) return;
+      try {
+        press.el.setPointerCapture(e.pointerId); // keep getting moves outside the row
+      } catch {}
+      drag = { from: press.pos, to: press.pos, dy: 0, height: press.el.offsetHeight || 58 };
+      scrollFrame = requestAnimationFrame(autoScroll);
+    }
+    updateDrag();
+  }
+
+  // Near the top or bottom edge, scroll the list so a row can go anywhere in it.
+  function autoScroll() {
+    if (!drag || !scroller) return;
+    const r = scroller.getBoundingClientRect();
+    const bottom = r.bottom - (parseFloat(getComputedStyle(scroller).paddingBottom) || 0);
+    const edge = 48;
+    let step = 0;
+    if (lastY < r.top + edge) step = -Math.ceil((r.top + edge - lastY) / 4);
+    else if (lastY > bottom - edge) step = Math.ceil((lastY - (bottom - edge)) / 4);
+    if (step) {
+      scroller.scrollTop += Math.max(-24, Math.min(24, step));
+      updateDrag();
+    }
+    scrollFrame = requestAnimationFrame(autoScroll);
+  }
+
+  function endDrag(commit: boolean) {
+    cancelAnimationFrame(scrollFrame);
+    if (drag && commit && drag.to !== drag.from) moveTo(drag.from, drag.to);
+    drag = null;
+    press = null;
+  }
+
+  // While dragging: the row follows the pointer, and the rows it passes make room.
+  function shift(pos: number): number {
+    if (!drag) return 0;
+    const { from, to, dy, height } = drag;
+    if (pos === from) return dy;
+    if (from < to && pos > from && pos <= to) return -height;
+    if (from > to && pos >= to && pos < from) return height;
+    return 0;
+  }
+
+  async function onRowKey(e: KeyboardEvent, entry: Entry, pos: number | null) {
+    if (e.key === "Enter") return jump(entry.index, entry.item);
+    if (drag && e.key === "Escape") return endDrag(false);
+    if (pos === null || !e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    const to = pos + (e.key === "ArrowUp" ? -1 : 1);
+    if (to < 0 || to >= nextUp.length) return;
+    moveTo(pos, to);
+    // Keep the focus on the row that moved.
+    await tick();
+    scroller?.querySelectorAll<HTMLElement>("button.item.movable")[to]?.focus();
+  }
+
+  function rowMenu(e: MouseEvent, entry: Entry, pos: number | null) {
+    const entries = songMenu(entry.item, { play: () => jump(entry.index, entry.item) });
+    if (pos !== null && pos > 0) {
+      entries.splice(1, 0, { label: "Play next", icon: ListStart, action: () => moveTo(pos, 0) });
+    }
+    menu.show(e, entries);
+  }
 </script>
 
-{#snippet row(entry: { item: QueueItem; index: number })}
+{#snippet row(entry: Entry, pos: number | null)}
+  {@const offset = pos === null ? 0 : shift(pos)}
   <button
     class="item"
+    class:movable={pos !== null}
+    class:dragged={drag !== null && pos === drag.from}
+    style:transform={offset ? `translateY(${offset}px)` : null}
     ondblclick={() => jump(entry.index, entry.item)}
-    onkeydown={(e) => e.key === "Enter" && jump(entry.index, entry.item)}
-    oncontextmenu={(e) => menu.show(e, songMenu(entry.item, { play: () => jump(entry.index, entry.item) }))}
-    title="Double-click to play"
+    onkeydown={(e) => onRowKey(e, entry, pos)}
+    oncontextmenu={(e) => rowMenu(e, entry, pos)}
+    onpointerdown={pos === null ? undefined : (e) => onPointerDown(e, pos)}
+    onpointermove={pos === null ? undefined : onPointerMove}
+    onpointerup={pos === null ? undefined : () => endDrag(true)}
+    onpointercancel={pos === null ? undefined : () => endDrag(false)}
+    title={pos === null ? "Double-click to play" : "Double-click to play, drag to reorder (or Alt+Up/Down)"}
   >
+    {#if pos !== null}<span class="grip" aria-hidden="true"><GripVertical size={14} /></span>{/if}
     <span class="thumb"><Artwork src={entry.item.thumbnail} kind="song" /></span>
     <span class="meta">
       <span class="title truncate">{entry.item.title}</span>
@@ -45,7 +168,7 @@
     </button>
   </header>
 
-  <div class="scroll">
+  <div class="scroll" class:dragging={drag !== null} bind:this={scroller}>
     {#if !player.queue.length}
       <p class="empty">Nothing queued yet. Play something from your library.</p>
     {:else}
@@ -62,11 +185,11 @@
       {/if}
       {#if nextUp.length}
         <div class="eyebrow section">Next up</div>
-        {#each nextUp as e (e.index)}{@render row(e)}{/each}
+        {#each nextUp as e, pos (e.index)}{@render row(e, pos)}{/each}
       {/if}
       {#if autoplay.length}
         <div class="eyebrow section">Autoplay</div>
-        {#each autoplay as e (e.index)}{@render row(e)}{/each}
+        {#each autoplay as e (e.index)}{@render row(e, null)}{/each}
       {/if}
     {/if}
   </div>
@@ -124,6 +247,40 @@
   button.item:hover,
   button.item:focus-visible {
     background: rgb(255 255 255 / 0.05);
+  }
+  /* The grip sits in the row's left padding, shown on hover. */
+  button.item.movable {
+    position: relative;
+  }
+  .grip {
+    position: absolute;
+    left: -4px;
+    display: flex;
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity 120ms;
+  }
+  button.item.movable:hover .grip,
+  button.item.movable:focus-visible .grip {
+    opacity: 1;
+  }
+  .scroll.dragging {
+    user-select: none;
+    cursor: grabbing;
+  }
+  /* Rows make room smoothly; every row is laid out while dragging so none skips a frame. */
+  .scroll.dragging .item {
+    content-visibility: visible;
+    transition: transform 140ms ease;
+  }
+  .scroll.dragging button.item.dragged {
+    z-index: 2;
+    transition: none;
+    background: var(--surface-3);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  }
+  .scroll.dragging button.item:not(.dragged):hover {
+    background: none;
   }
   .item.now {
     padding: 10px;

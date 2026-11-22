@@ -267,6 +267,54 @@
     }
   }, 2000);
 
+  // Safety net: re-read the queue every couple of seconds too. A change the observer
+  // misses (or one made while the queue element was being replaced) would otherwise
+  // leave our copy showing an old "now playing" until the next change. Only real
+  // changes are sent.
+  setInterval(scheduleQueue, 2000);
+
+  // ---- reordering: through YouTube Music's own queue store (what its drag handles do).
+  const queueEl = () => document.querySelector("ytmusic-player-queue");
+  // The video ids of one store item: a song, or a song/music-video pair.
+  function storeItemIds(item, depth = 0, out = []) {
+    if (!item || typeof item !== "object" || depth > 6) return out;
+    if (item.playlistPanelVideoRenderer?.videoId) out.push(item.playlistPanelVideoRenderer.videoId);
+    for (const v of Object.values(item)) if (v && typeof v === "object") storeItemIds(v, depth + 1, out);
+    return out;
+  }
+  // Where a track is in the store, nearest `near` if it's in there more than once.
+  function storeIndexOf(items, videoId, near) {
+    let best = -1;
+    items.forEach((item, i) => {
+      if (storeItemIds(item).includes(videoId) && (best < 0 || Math.abs(i - near) < Math.abs(best - near))) best = i;
+    });
+    return best;
+  }
+  // Move the track at `from` (our queue's numbering) to where `to` is now. Only
+  // within what's still to come: the current track and autoplay stay put.
+  function queueMove({ from, to, videoId }) {
+    const q = queueEl();
+    const state = q?.getState?.()?.queue;
+    if (!q?.dispatch || !state?.items) return send("log", "queueMove: no queue store");
+    const entries = queueEntries();
+    const a = entries[from];
+    const b = entries[to];
+    if (!a || !b || a.autoplay || b.autoplay || from === to) return;
+    const toId = b.el.data?.videoId;
+    const fromIndex = storeIndexOf(state.items, videoId, from);
+    const toIndex = toId ? storeIndexOf(state.items, toId, to) : -1;
+    const selected = state.selectedItemIndex ?? -1;
+    if (fromIndex < 0 || toIndex < 0 || fromIndex <= selected || toIndex <= selected) {
+      return send("log", `queueMove: ${videoId} ${from}->${to} not movable (${fromIndex}->${toIndex}, current ${selected})`);
+    }
+    try {
+      q.dispatch({ type: "MOVE_ITEM", payload: { fromIndex, toIndex } });
+    } catch (e) {
+      send("log", `queueMove failed: ${e}`);
+    }
+    scheduleQueue();
+  }
+
   function queueJump({ index, videoId }) {
     const els = queueElements();
     let el = els[index];
@@ -569,6 +617,7 @@
       });
     },
     queueJump,
+    queueMove,
     lightMode: ({ on }) => {
       lightMode = !!on;
       lightenedFor = null;

@@ -6,7 +6,10 @@
 //! `main` window. `main` controls playback through `player_cmd`, which calls
 //! back into the bridge.
 
-use std::sync::Mutex;
+use std::sync::{
+    Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 
 use serde::Serialize;
 use serde_json::Value;
@@ -36,15 +39,34 @@ pub struct Snapshot {
     queue: Option<Value>,
 }
 
+/// Whether our UI is minimized, as last seen by the window's resize events (lib.rs).
+static MAIN_MINIMIZED: AtomicBool = AtomicBool::new(false);
+
 /// Send an update to our UI, unless it's minimized: there's no point waking it, and
-/// it catches up through `player_status` when restored.
+/// `main_minimized` pushes the latest state when it's restored.
 fn emit_if_visible(app: &AppHandle, event: &str, data: Value) {
-    let minimized = app
-        .get_webview_window(MAIN_LABEL)
-        .and_then(|w| w.is_minimized().ok())
-        .unwrap_or(false);
-    if !minimized {
+    if !MAIN_MINIMIZED.load(Ordering::SeqCst) {
         let _ = app.emit_to(MAIN_LABEL, event, data);
+    }
+}
+
+/// Our UI was minimized or restored. Restored: send it what it missed. (It used to
+/// catch up by itself when its page became visible again, but that didn't always
+/// happen, and updates sent while the window was still coming back were lost, so the
+/// queue could keep showing the song from when it was minimized.)
+/// The flag is set before the snapshot is read, so every update is either in the
+/// snapshot or sent on its own.
+pub fn main_minimized(app: &AppHandle, minimized: bool) {
+    MAIN_MINIMIZED.store(minimized, Ordering::SeqCst);
+    if minimized {
+        return;
+    }
+    let snapshot = app.state::<PlayerState>().0.lock().unwrap().clone();
+    if let Some(playback) = snapshot.playback {
+        let _ = app.emit_to(MAIN_LABEL, "player://playback", playback);
+    }
+    if let Some(queue) = snapshot.queue {
+        let _ = app.emit_to(MAIN_LABEL, "player://queue", queue);
     }
 }
 
@@ -297,6 +319,7 @@ pub fn send_command(app: &AppHandle, cmd: Value) -> Result<(), String> {
         "volume",
         "load",
         "queueJump",
+        "queueMove",
         "rate",
         "repeat",
         "shuffle",

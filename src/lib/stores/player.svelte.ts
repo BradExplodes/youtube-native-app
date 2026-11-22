@@ -1,5 +1,5 @@
 // Shared player state for the UI, kept in sync with the hidden player window.
-import { onAuth, onPlayback, onQueue, playerStatus, type Playback, type QueueItem } from "$lib/ipc";
+import { onAuth, onPlayback, onQueue, playerCmd, playerStatus, type Playback, type QueueItem } from "$lib/ipc";
 
 const CONTEXT_KEY = "ytmn:context";
 function readContext(): string | null {
@@ -74,22 +74,36 @@ class PlayerStore {
     }
   }
 
+  /** Counts updates as they arrive, so a catch-up that was overtaken by a newer update
+   *  doesn't put the older state back. */
+  #playbackSeq = 0;
+  #queueSeq = 0;
+
   async refresh() {
+    const playbackSeq = this.#playbackSeq;
+    const queueSeq = this.#queueSeq;
     const s = await playerStatus();
     this.loggedIn = s.loggedIn;
-    this.set(s.playback);
-    this.queue = s.queue?.items ?? [];
+    if (playbackSeq === this.#playbackSeq) this.set(s.playback);
+    if (queueSeq === this.#queueSeq) this.queue = s.queue?.items ?? [];
   }
 
   /** Subscribe to the player and catch up whenever the window becomes visible again. */
   async start() {
     const unlisten = await Promise.all([
       onAuth((v) => (this.loggedIn = v)),
-      onPlayback((p) => this.set(p)),
-      onQueue((items) => (this.queue = items)),
+      onPlayback((p) => {
+        this.#playbackSeq++;
+        this.set(p);
+      }),
+      onQueue((items) => {
+        this.#queueSeq++;
+        this.queue = items;
+      }),
     ]);
     await this.refresh();
-    // Rust skips progress events while we're minimized, so re-sync on restore.
+    // Rust skips updates while we're minimized and sends the latest on restore; this
+    // is a second chance.
     const onVisible = () => {
       if (document.visibilityState === "visible") this.refresh();
     };
@@ -98,6 +112,19 @@ class PlayerStore {
       unlisten.forEach((u) => u());
       document.removeEventListener("visibilitychange", onVisible);
     };
+  }
+
+  /** Move a track in the queue (indexes into `queue`): shown at once, then confirmed
+   *  by the queue update YouTube Music sends back. */
+  moveInQueue(from: number, to: number) {
+    const item = this.queue[from];
+    if (!item || from === to || to < 0 || to >= this.queue.length) return;
+    const next = [...this.queue];
+    next.splice(from, 1);
+    next.splice(to, 0, item);
+    this.#queueSeq++;
+    this.queue = next;
+    playerCmd({ action: "queueMove", from, to, videoId: item.videoId }).catch(() => {});
   }
 
   /** Show a change straight away, before the player confirms it. */

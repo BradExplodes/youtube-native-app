@@ -109,6 +109,7 @@ pub fn run() {
                     if let Some(w) = window.app_handle().get_webview_window("main") {
                         webview::set_low_memory(&w, minimized);
                     }
+                    player::main_minimized(window.app_handle(), minimized);
                 }
             }
             // The player window must stay alive to keep playing: closing it during

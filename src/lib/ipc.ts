@@ -47,7 +47,9 @@ export type PlayerCommand =
   | { action: "repeat"; mode: RepeatMode }
   | { action: "shuffle"; on: boolean }
   | { action: "load"; videoId?: string; playlistId?: string }
-  | { action: "queueJump"; index: number; videoId: string };
+  | { action: "queueJump"; index: number; videoId: string }
+  /** Move the track at `from` to where `to` is (both positions in the queue). */
+  | { action: "queueMove"; from: number; to: number; videoId: string };
 
 export const playerStatus = () => invoke<Snapshot>("player_status");
 export const showLogin = () => invoke<void>("player_show_login");

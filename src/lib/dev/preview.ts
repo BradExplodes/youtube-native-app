@@ -116,6 +116,9 @@ export function install() {
             playing = true;
           }
           if (c.action === "queueJump") (index = c.index), (position = 0);
+          if (c.action === "queueMove" && c.from > index && c.to > index && tracks[c.from]?.videoId === c.videoId) {
+            tracks.splice(c.to, 0, ...tracks.splice(c.from, 1));
+          }
           setTimeout(push, 50);
           return null;
         }
