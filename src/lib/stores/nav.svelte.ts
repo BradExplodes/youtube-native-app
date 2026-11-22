@@ -8,6 +8,7 @@ export type Route =
   | { kind: "home" } // Home: YouTube Music's picks for you, plus Explore
   | { kind: "list"; browseId: string } // Liked Songs, a playlist, an album or a library artist
   | { kind: "browse"; browseId: string; params?: string } // a page of shelves: a genre, the charts, new releases…
+  | { kind: "mix"; id: string } // one of the app's own "Made for you" mixes
   | { kind: "albums" }
   | { kind: "artists" }
   | { kind: "artist"; browseId: string } // an artist's own page (UC…)
@@ -20,6 +21,7 @@ export interface Tab {
 
 export const sameRoute = (a: Route, b: Route) =>
   a.kind === b.kind &&
+  ("id" in a ? "id" in b && a.id === b.id : true) &&
   ("browseId" in a ? "browseId" in b && a.browseId === b.browseId : true) &&
   ("params" in a ? a.params : undefined) === ("params" in b ? b.params : undefined);
 
@@ -44,6 +46,8 @@ function validRoute(r: unknown): Route | null {
     case "list":
     case "artist":
       return id ? { kind: o.kind, browseId: id } : null;
+    case "mix":
+      return typeof o.id === "string" && o.id ? { kind: "mix", id: o.id } : null;
     case "browse":
       if (!id) return null;
       return typeof o.params === "string" && o.params ? { kind: "browse", browseId: id, params: o.params } : { kind: "browse", browseId: id };

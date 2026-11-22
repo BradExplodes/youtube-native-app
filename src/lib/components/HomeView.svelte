@@ -7,8 +7,9 @@
   import Shelves from "./Shelves.svelte";
   import { openLink } from "$lib/open";
   import { library } from "$lib/stores/library.svelte";
+  import { LIKED_RARELY, coversOf, mixes } from "$lib/stores/mixes.svelte";
   import { EXPLORE_LINKS, SHELF_PAGES } from "$lib/ytm/shelves";
-  import type { Chip, Shelf } from "$lib/ytm/types";
+  import type { Chip, Shelf, Tile } from "$lib/ytm/types";
 
   /** Coming back to Home after this long fetches fresh picks. */
   const STALE_MS = 30 * 60_000;
@@ -27,6 +28,36 @@
     explore.shelves.filter((s: Shelf) => !(s.buttons.length && s.buttons.every((b) => exploreIds.has(b.link.browseId)))),
   );
   const exploreReady = $derived(home.loaded && !home.hasMore);
+
+  // "Made for you": the app's own mixes from your listening history, after YouTube
+  // Music's first shelf (Quick picks). Not with a mood chip picked: they aren't moods.
+  const madeForYou = $derived.by((): Shelf | null => {
+    if (library.homeChip || !mixes.list.length) return null;
+    const tiles: Tile[] = mixes.list.map((m) => ({
+      kind: "playlist",
+      title: m.title,
+      subtitle: m.description,
+      mixId: m.id,
+      covers: coversOf(m.tracks),
+    }));
+    if (mixes.offerLikedRarely) {
+      const liked = mixes.likedRarely?.tracks ?? [];
+      tiles.push({
+        kind: "playlist",
+        title: "Liked, rarely played",
+        subtitle: "Songs you've liked but hardly ever play here",
+        mixId: LIKED_RARELY,
+        covers: coversOf(liked),
+      });
+    }
+    return { title: "Made for you", strapline: "From your listening on this computer", tiles, tracks: [], buttons: [], grid: false };
+  });
+  const homeShelves = $derived(
+    madeForYou ? [...home.shelves.slice(0, 1), madeForYou, ...home.shelves.slice(1)] : home.shelves,
+  );
+  $effect(() => {
+    untrack(() => mixes.load());
+  });
 
   $effect(() => {
     const page = home;
@@ -83,7 +114,7 @@
       {#if !home.shelves.length}
         <p class="empty">YouTube Music has no picks for you here yet. Play some music and check back.</p>
       {/if}
-      <Shelves shelves={home.shelves} />
+      <Shelves shelves={homeShelves} />
       {#if home.error}
         <p class="inline-error">
           Couldn't load more: {home.error}

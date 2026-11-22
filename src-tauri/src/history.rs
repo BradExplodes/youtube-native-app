@@ -41,10 +41,13 @@ pub struct Play {
     pub listened: u32,
     /// Played through to (nearly) the end.
     pub completed: bool,
+    /// The cover's address, when the player showed one (older entries have none).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub artwork: String,
 }
 
 impl Play {
-    fn counted(&self) -> bool {
+    pub(crate) fn counted(&self) -> bool {
         self.completed || self.listened >= COUNTED_SECS
     }
 }
@@ -56,6 +59,7 @@ struct Current {
     title: String,
     artist: String,
     album: String,
+    artwork: String,
     duration: f64,
     listened: f64,
     last_pos: f64,
@@ -72,6 +76,7 @@ impl Current {
             title: String::new(),
             artist: String::new(),
             album: String::new(),
+            artwork: String::new(),
             duration: 0.0,
             listened: 0.0,
             last_pos: 0.0,
@@ -101,6 +106,7 @@ impl Current {
             (&mut self.title, "title"),
             (&mut self.artist, "artist"),
             (&mut self.album, "album"),
+            (&mut self.artwork, "artwork"),
         ] {
             if let Some(s) = data[key].as_str().filter(|s| !s.is_empty()) {
                 *field = s.to_owned();
@@ -133,6 +139,7 @@ impl Current {
             duration: self.duration.round() as u32,
             listened: self.listened.round() as u32,
             completed,
+            artwork: self.artwork,
         })
     }
 }
@@ -206,7 +213,7 @@ pub fn flush(app: &AppHandle) {
     }
 }
 
-fn load(app: &AppHandle) -> Vec<Play> {
+pub(crate) fn load(app: &AppHandle) -> Vec<Play> {
     let Some(text) = file(app).and_then(|f| std::fs::read_to_string(f).ok()) else {
         return Vec::new();
     };
@@ -444,6 +451,7 @@ mod tests {
             duration: 200,
             listened,
             completed: listened >= 190,
+            artwork: String::new(),
         };
         // 2024-01-01 was a Monday. 23:30 UTC = 00:30 the next day at UTC+1.
         let monday_2330 = 1_704_151_800;

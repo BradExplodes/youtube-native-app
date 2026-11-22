@@ -200,6 +200,12 @@ export function install() {
             position = 0;
             playing = true;
           }
+          if (c.action === "loadList") {
+            const at = tracks.findIndex((t) => t.videoId === c.videoIds?.[0]);
+            index = at >= 0 ? at : 0;
+            position = 0;
+            playing = true;
+          }
           if (c.action === "queueJump") (index = c.index), (position = 0);
           if (c.action === "queueMove" && c.from > index && c.to > index && tracks[c.from]?.videoId === c.videoId) {
             tracks.splice(c.to, 0, ...tracks.splice(c.from, 1));
@@ -245,6 +251,27 @@ export function install() {
           if (a.endpoint === "next") return {}; // no YouTube Music lyrics in the preview
           return { status: "STATUS_SUCCEEDED" };
         }
+        case "history_mixes": {
+          // Pretend mixes from Liked Songs (there's no listening history in the preview).
+          const raw = (from: number, n: number) =>
+            tracks.slice(from, from + n).map((t) => ({
+              videoId: t.videoId,
+              title: t.title,
+              artist: t.artists.map((x) => x.name).join(", "),
+              album: t.album?.name ?? "",
+              duration: seconds(t.duration),
+              artwork: t.thumbnail ?? "",
+            }));
+          return [
+            { id: "on-repeat", title: "On repeat", description: "What you've played most in the last 30 days", tracks: raw(0, 25) },
+            { id: "forgotten-favourites", title: "Forgotten favourites", description: "Songs you used to play a lot and haven't heard in a while", tracks: raw(30, 20) },
+            { id: "never-skipped", title: "Never skipped", description: "Songs you always listen to all the way through", tracks: raw(60, 40) },
+            { id: "late-night", title: "Late night", description: "What you play after 10 pm", tracks: raw(100, 18) },
+          ].filter((m) => m.tracks.length >= 15);
+        }
+        case "history_play_counts":
+          // Every third song "played" a few times, the rest barely.
+          return (a.videoIds ?? []).map((_: string, i: number) => (i % 3 === 0 ? 4 : i % 2));
         case "settings_get":
           return settings;
         case "settings_set":

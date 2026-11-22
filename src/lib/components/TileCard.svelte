@@ -2,6 +2,7 @@
   // An album, playlist, artist, song or video as a card. Clicking opens its page, or
   // plays it (songs and videos).
   import Artwork from "./Artwork.svelte";
+  import Mosaic from "./Mosaic.svelte";
   import { Play } from "@lucide/svelte";
   import { playlistMenu, songMenu } from "$lib/menus";
   import { openTile } from "$lib/open";
@@ -30,7 +31,11 @@
 
 <button class="card {tile.kind}" class:current={isCurrent} onclick={() => openTile(tile)} oncontextmenu={onContextMenu} title={tile.title}>
   <span class="art">
-    <Artwork src={tile.kind === "video" ? tile.thumbnail : sized(tile.thumbnail, 400)} kind={tile.kind} lazy />
+    {#if tile.covers?.length}
+      <Mosaic covers={tile.covers} />
+    {:else}
+      <Artwork src={tile.kind === "video" ? tile.thumbnail : sized(tile.thumbnail, 400)} kind={tile.kind} lazy />
+    {/if}
     {#if playable}
       <span class="play" aria-hidden="true"><Play size={20} fill="currentColor" strokeWidth={0} /></span>
     {/if}

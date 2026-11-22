@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-history-mixes"
+description = "Enables the history_mixes command without any pre-configured scope."
+commands.allow = ["history_mixes"]
+
+[[permission]]
+identifier = "deny-history-mixes"
+description = "Denies the history_mixes command without any pre-configured scope."
+commands.deny = ["history_mixes"]

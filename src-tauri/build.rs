@@ -19,6 +19,8 @@ fn main() {
             "ui_log",
             "history_recent",
             "history_stats",
+            "history_mixes",
+            "history_play_counts",
         ]),
     ))
     .expect("failed to run tauri-build");

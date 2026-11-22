@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-history-play-counts"
+description = "Enables the history_play_counts command without any pre-configured scope."
+commands.allow = ["history_play_counts"]
+
+[[permission]]
+identifier = "deny-history-play-counts"
+description = "Denies the history_play_counts command without any pre-configured scope."
+commands.deny = ["history_play_counts"]

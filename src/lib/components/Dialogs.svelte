@@ -71,7 +71,7 @@
       <header class="top">
         <div>
           <div class="eyebrow">{d.browseId ? "Edit playlist" : "New playlist"}</div>
-          <h2>{d.browseId ? "Playlist details" : d.videoIds?.length ? "Create with this song" : "Create a playlist"}</h2>
+          <h2>{d.browseId ? "Playlist details" : (d.videoIds?.length ?? 0) > 1 ? "Save as a playlist" : d.videoIds?.length ? "Create with this song" : "Create a playlist"}</h2>
         </div>
         <button type="button" class="modal-pill" onclick={() => dialog.close()}>Close</button>
       </header>

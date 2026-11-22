@@ -318,6 +318,7 @@ pub fn send_command(app: &AppHandle, cmd: Value) -> Result<(), String> {
         "seekBy",
         "volume",
         "load",
+        "loadList",
         "queueJump",
         "queueMove",
         "rate",

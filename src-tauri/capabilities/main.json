@@ -24,6 +24,8 @@
     "allow-ui-log",
     "allow-history-recent",
     "allow-history-stats",
+    "allow-history-mixes",
+    "allow-history-play-counts",
     "updater:default"
   ]
 }

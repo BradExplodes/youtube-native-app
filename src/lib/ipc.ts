@@ -47,6 +47,8 @@ export type PlayerCommand =
   | { action: "repeat"; mode: RepeatMode }
   | { action: "shuffle"; on: boolean }
   | { action: "load"; videoId?: string; playlistId?: string }
+  /** Play a list of our own (a mix): the first song now, the rest queued after it. */
+  | { action: "loadList"; videoIds: string[] }
   | { action: "queueJump"; index: number; videoId: string }
   /** Move the track at `from` to where `to` is (both positions in the queue). */
   | { action: "queueMove"; from: number; to: number; videoId: string };

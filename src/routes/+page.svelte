@@ -5,6 +5,7 @@
   import ArtistsView from "$lib/components/ArtistsView.svelte";
   import BrowseView from "$lib/components/BrowseView.svelte";
   import HomeView from "$lib/components/HomeView.svelte";
+  import MixView from "$lib/components/MixView.svelte";
   import ContextMenu from "$lib/components/ContextMenu.svelte";
   import Dialogs from "$lib/components/Dialogs.svelte";
   import LoginPrompt from "$lib/components/LoginPrompt.svelte";
@@ -97,6 +98,8 @@
           <HomeView />
         {:else if nav.route.kind === "list"}
           <TrackListView browseId={nav.route.browseId} />
+        {:else if nav.route.kind === "mix"}
+          <MixView id={nav.route.id} />
         {:else if nav.route.kind === "browse"}
           <BrowseView browseId={nav.route.browseId} params={nav.route.params} />
         {:else if nav.route.kind === "artist"}

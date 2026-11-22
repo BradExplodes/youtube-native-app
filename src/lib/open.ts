@@ -30,7 +30,8 @@ export function playMix(playlistId: string) {
 
 /** A card or row: open its page, or play it if it's a song, video or play-only mix. */
 export function openTile(t: Tile) {
-  if (t.kind === "artist" && t.browseId) openArtist(t.browseId);
+  if (t.mixId) nav.go({ kind: "mix", id: t.mixId });
+  else if (t.kind === "artist" && t.browseId) openArtist(t.browseId);
   else if ((t.kind === "album" || t.kind === "playlist") && t.browseId) nav.go({ kind: "list", browseId: t.browseId });
   else if (t.videoId) playSingle(t.videoId);
   else if (t.playlistId) playMix(t.playlistId);

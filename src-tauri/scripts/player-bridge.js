@@ -315,6 +315,44 @@
     scheduleQueue();
   }
 
+  // Put songs into the queue straight after the one playing, the way YouTube Music's own
+  // "Play next" does: fetch their queue entries, then add them to the queue's store.
+  async function queueAfterCurrent(videoIds) {
+    if (!videoIds.length) return;
+    try {
+      const items = [];
+      for (let i = 0; i < videoIds.length; i += 50) {
+        const res = await innertube("music/get_queue", { videoIds: videoIds.slice(i, i + 50) });
+        for (const d of res?.queueDatas ?? []) if (d?.content) items.push(d.content);
+      }
+      if (!items.length) return send("log", "loadList: get_queue returned nothing");
+      // The store fills in a moment after the song starts: wait until it has the song.
+      let state = null;
+      for (let tries = 0; tries < 40; tries++) {
+        state = queueEl()?.getState?.()?.queue;
+        if (state?.items?.length && (state.selectedItemIndex ?? -1) >= 0) break;
+        await new Promise((r) => setTimeout(r, 125));
+      }
+      const q = queueEl();
+      if (!q?.dispatch || !state?.items) return send("log", "loadList: no queue store");
+      q.dispatch({
+        type: "ADD_ITEMS",
+        payload: {
+          nextQueueItemId: state.nextQueueItemId,
+          index: Math.max(0, state.selectedItemIndex ?? 0) + 1,
+          items,
+          shuffleEnabled: false,
+          shouldAssignIds: true,
+        },
+      });
+      send("log", `loadList: queued ${items.length} of ${videoIds.length} after the current song`);
+      if (shuffleOn) syncShuffle();
+      scheduleQueue();
+    } catch (e) {
+      send("log", `loadList failed: ${(e && e.stack) || e}`);
+    }
+  }
+
   function queueJump({ index, videoId }) {
     const els = queueElements();
     let el = els[index];
@@ -616,6 +654,14 @@
         if (shuffleOn) syncShuffle();
       });
     },
+    // A list of our own (a mix made from your history): the first song plays and the
+    // rest go into the queue right after it. YouTube Music's radio carries on after them.
+    loadList: ({ videoIds }) => {
+      const ids = (Array.isArray(videoIds) ? videoIds : []).map(String).filter((v) => /^[\w-]{11}$/.test(v)).slice(0, 200);
+      if (!ids.length) return;
+      contextPlaylist = null;
+      load({ videoId: ids[0] }, () => queueAfterCurrent(ids.slice(1)));
+    },
     queueJump,
     queueMove,
     lightMode: ({ on }) => {
@@ -657,20 +703,25 @@
     };
   }
 
+  // A signed request to one of YouTube Music's own endpoints, as the page itself makes.
+  async function innertube(endpoint, req) {
+    const cfg = window.ytcfg;
+    if (!cfg || !cfg.get) throw new Error("YouTube Music hasn't finished loading");
+    const url = new URL(`/youtubei/v1/${endpoint}`, location.origin);
+    url.searchParams.set("prettyPrint", "false");
+    const body = { ...req, context: cfg.get("INNERTUBE_CONTEXT") };
+    const headers = innertubeHeaders(cfg);
+    const auth = await sapisidHash();
+    if (auth) headers.authorization = auth;
+    const res = await fetch(url, { method: "POST", credentials: "include", headers, body: JSON.stringify(body) });
+    if (!res.ok) throw new Error(`YouTube Music answered ${res.status}`);
+    return res.json();
+  }
+
   // An action (like a song, edit a playlist…). Rust only lets allowed endpoints through.
   async function call(id, endpoint, req) {
     try {
-      const cfg = window.ytcfg;
-      if (!cfg || !cfg.get) throw new Error("YouTube Music hasn't finished loading");
-      const url = new URL(`/youtubei/v1/${endpoint}`, location.origin);
-      url.searchParams.set("prettyPrint", "false");
-      const body = { ...req, context: cfg.get("INNERTUBE_CONTEXT") };
-      const headers = innertubeHeaders(cfg);
-      const auth = await sapisidHash();
-      if (auth) headers.authorization = auth;
-      const res = await fetch(url, { method: "POST", credentials: "include", headers, body: JSON.stringify(body) });
-      if (!res.ok) throw new Error(`YouTube Music answered ${res.status}`);
-      send("browse", { id, body: await res.json() });
+      send("browse", { id, body: await innertube(endpoint, req) });
     } catch (e) {
       send("browse", { id, error: String((e && e.message) || e) });
     }

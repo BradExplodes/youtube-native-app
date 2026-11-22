@@ -94,6 +94,10 @@ export interface Tile {
   videoId?: string;
   /** To play it as a whole: a mix that has no page of its own (e.g. My Supermix). */
   playlistId?: string;
+  /** One of this app's own "Made for you" mixes, to open. */
+  mixId?: string;
+  /** Up to four covers shown as a 2×2 mosaic instead of `thumbnail`. */
+  covers?: string[];
 }
 
 /** Everything a plain search finds, by kind. */

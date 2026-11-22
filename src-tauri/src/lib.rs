@@ -3,6 +3,7 @@ mod devtest;
 #[cfg(target_os = "windows")]
 mod discord;
 mod history;
+mod mixes;
 mod library;
 #[cfg(target_os = "windows")]
 mod media;
@@ -70,6 +71,8 @@ pub fn run() {
             settings::ui_log,
             history::history_recent,
             history::history_stats,
+            mixes::history_mixes,
+            mixes::history_play_counts,
         ])
         .setup(|app| {
             settings::init(app.handle());
