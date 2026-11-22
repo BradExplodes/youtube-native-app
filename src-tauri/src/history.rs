@@ -33,6 +33,9 @@ pub struct Play {
     pub video_id: String,
     pub title: String,
     pub artist: String,
+    /// The main artist's channel (UC…), when the player linked one (older entries have none).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub artist_id: String,
     #[serde(default)]
     pub album: String,
     /// The song's length in seconds (0 if unknown).
@@ -58,6 +61,7 @@ struct Current {
     video_id: String,
     title: String,
     artist: String,
+    artist_id: String,
     album: String,
     artwork: String,
     duration: f64,
@@ -75,6 +79,7 @@ impl Current {
             video_id: video_id.to_owned(),
             title: String::new(),
             artist: String::new(),
+            artist_id: String::new(),
             album: String::new(),
             artwork: String::new(),
             duration: 0.0,
@@ -107,6 +112,7 @@ impl Current {
             (&mut self.artist, "artist"),
             (&mut self.album, "album"),
             (&mut self.artwork, "artwork"),
+            (&mut self.artist_id, "artistId"),
         ] {
             if let Some(s) = data[key].as_str().filter(|s| !s.is_empty()) {
                 *field = s.to_owned();
@@ -135,6 +141,7 @@ impl Current {
             video_id: self.video_id,
             title: self.title,
             artist: self.artist,
+            artist_id: self.artist_id,
             album: self.album,
             duration: self.duration.round() as u32,
             listened: self.listened.round() as u32,
@@ -247,6 +254,8 @@ pub struct TrackStat {
 #[serde(rename_all = "camelCase")]
 pub struct ArtistStat {
     pub artist: String,
+    /// Their channel (UC…), if any of their plays recorded it.
+    pub artist_id: String,
     pub plays: u32,
     pub seconds: u64,
 }
@@ -330,6 +339,9 @@ fn compute(plays: &[Play], since: Option<u64>, until: Option<u64>, tz_offset_sec
                 artist: p.artist.clone(),
                 ..Default::default()
             });
+            if !p.artist_id.is_empty() {
+                a.artist_id.clone_from(&p.artist_id);
+            }
             a.plays += counted;
             a.seconds += secs;
         }
@@ -441,12 +453,28 @@ mod tests {
     }
 
     #[test]
+    fn remembers_the_artists_channel() {
+        let t0 = Instant::now();
+        let mut tr = Tracker::default();
+        let mut data = report("a", 0.0, true);
+        tr.on_playback(&data, t0, 0);
+        // The queue item (with the artist link) can arrive a moment after the song starts.
+        data["artistId"] = json!("UCband");
+        tr.on_playback(&data, t0 + Duration::from_secs(1), 0);
+        let play = tr.flush(t0 + Duration::from_secs(60)).unwrap();
+        assert_eq!(play.artist_id, "UCband");
+        let s = compute(&[play], None, None, 0, 10);
+        assert_eq!(s.top_artists[0].artist_id, "UCband");
+    }
+
+    #[test]
     fn stats_buckets() {
         let mk = |ts, id: &str, artist: &str, listened| Play {
             ts,
             video_id: id.into(),
             title: id.into(),
             artist: artist.into(),
+            artist_id: String::new(),
             album: String::new(),
             duration: 200,
             listened,

@@ -54,6 +54,23 @@ const page = (sections: any[], extra: any = {}) => ({
   contents: { singleColumnBrowseResultsRenderer: { tabs: [{ tabRenderer: { content: { sectionListRenderer: { ...extra.list, contents: sections } } } }] } },
 });
 
+/** The saved artist page, with "Top songs" swapped for a different handful of your
+ *  liked songs for each artist (so discovery has something to put together). */
+function sampleArtistPage(browseId: string): unknown {
+  const page = fixture("artist_page") as any;
+  if (!page) return {};
+  const songs: any[] = (findKey(fixture("liked_songs"), "musicPlaylistShelfRenderer")?.contents ?? []).filter(
+    (i: any) => i.musicResponsiveListItemRenderer,
+  );
+  const at = [...browseId].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 997, 7) % Math.max(1, songs.length - 5);
+  const copy = structuredClone(page);
+  const shelf = findKey(copy, "musicShelfRenderer");
+  // Not liked here, or discovery would rightly skip them all.
+  if (shelf && songs.length)
+    shelf.contents = JSON.parse(JSON.stringify(songs.slice(at, at + 5)).replaceAll('"likeStatus":"LIKE"', '"likeStatus":"INDIFFERENT"'));
+  return copy;
+}
+
 function sampleShelfPage(browseId: string, params?: string): unknown {
   const songs: any[] = (findKey(fixture("liked_songs"), "musicPlaylistShelfRenderer")?.contents ?? []).filter(
     (i: any) => i.musicResponsiveListItemRenderer,
@@ -169,7 +186,7 @@ export function install() {
           const songs = fixture("search_songs") as { first?: unknown; next?: unknown } | undefined;
           if (req.continuation) return (req.search && songs?.next) || {};
           if (req.query) return (req.params ? songs?.first : fixture("search_linkin_park")) ?? {};
-          if (req.browseId?.startsWith("UC")) return fixture("artist_page") ?? {};
+          if (req.browseId?.startsWith("UC")) return sampleArtistPage(req.browseId);
           if (req.browseId in SHELF_FIXTURES || req.browseId === "FEmusic_new_releases") {
             const saved = !req.params || req.browseId !== "FEmusic_home" ? fixture(SHELF_FIXTURES[req.browseId]) : undefined;
             return saved ?? sampleShelfPage(req.browseId, req.params);
@@ -269,6 +286,15 @@ export function install() {
             { id: "late-night", title: "Late night", description: "What you play after 10 pm", tracks: raw(100, 18) },
           ].filter((m) => m.tracks.length >= 15);
         }
+        case "history_stats":
+          // Pretend favourite artists (their pages are the saved artist page, see above).
+          return {
+            topArtists: [
+              { artist: "Preview Artist One", artistId: "UCpreview1", plays: 40, seconds: 9000 },
+              { artist: "Preview Artist Two", artistId: "UCpreview2", plays: 25, seconds: 6000 },
+              { artist: "Preview Artist Three", artistId: "UCpreview3", plays: 12, seconds: 3000 },
+            ],
+          };
         case "history_play_counts":
           // Every third song "played" a few times, the rest barely.
           return (a.videoIds ?? []).map((_: string, i: number) => (i % 3 === 0 ? 4 : i % 2));

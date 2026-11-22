@@ -233,6 +233,7 @@ mod tests {
             video_id: format!("song{id:02}"),
             title: format!("Song {id}"),
             artist: "Band".into(),
+            artist_id: String::new(),
             album: String::new(),
             duration: 200,
             listened,

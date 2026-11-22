@@ -2,9 +2,10 @@
 // out on this computer, see src-tauri/src/mixes.rs), plus "Liked, rarely played",
 // which matches your Liked Songs against it.
 import { invoke } from "@tauri-apps/api/core";
+import { discover } from "$lib/discover";
 import { library } from "$lib/stores/library.svelte";
 import { BROWSE } from "$lib/ytm/api";
-import type { Track } from "$lib/ytm/types";
+import type { Tile, Track } from "$lib/ytm/types";
 
 interface RawMixTrack {
   videoId: string;
@@ -30,6 +31,8 @@ export interface Mix {
 }
 
 export const LIKED_RARELY = "liked-rarely";
+export const NEW_TO_YOU = "new-to-you";
+const DISCOVERY_CACHE = "ytmn.discovery";
 /** Fewer songs than this and a mix isn't worth offering (same as the Rust side). */
 const MIN_TRACKS = 15;
 const MAX_TRACKS = 50;
@@ -104,7 +107,52 @@ class Mixes {
   }
 
   get(id: string): Mix | undefined {
+    if (id === NEW_TO_YOU) return this.newToYou ?? undefined;
     return this.list.find((m) => m.id === id);
+  }
+
+  // ---- Discovery: artists like the ones you play most, and their songs you haven't
+  // heard here ("New to you"). It takes a dozen or so page fetches, so it's worked out
+  // once a day, in the background, and kept on this computer until tomorrow.
+
+  /** Similar artists, for the "Artists you might like" shelf. */
+  similarArtists = $state.raw<Tile[]>([]);
+  newToYou = $state.raw<Mix | null>(null);
+  discoveryLoading = $state(false);
+  /** Worked out (or found to need more history) for today. */
+  discoveryDone = $state(false);
+  private discoveryDay = "";
+
+  async loadDiscovery() {
+    if (this.discoveryLoading || this.discoveryDay === today()) return;
+    const cached = readDiscovery();
+    if (cached) return this.setDiscovery(cached.artists, cached.tracks);
+    this.discoveryLoading = true;
+    try {
+      const found = await discover();
+      this.setDiscovery(found?.artists ?? [], found?.tracks ?? []);
+      writeDiscovery(this.similarArtists, this.newToYou?.tracks ?? []);
+    } catch {
+      // Offline, or YouTube Music changed something: try again next time Home opens.
+      this.discoveryDone = true;
+    } finally {
+      this.discoveryLoading = false;
+    }
+  }
+
+  private setDiscovery(artists: Tile[], tracks: Track[]) {
+    this.similarArtists = artists;
+    this.newToYou =
+      tracks.length >= MIN_TRACKS
+        ? {
+            id: NEW_TO_YOU,
+            title: "New to you",
+            description: "Top songs from artists like the ones you play most",
+            tracks: tracks.slice(0, MAX_TRACKS),
+          }
+        : null;
+    this.discoveryDay = today();
+    this.discoveryDone = true;
   }
 
   // ---- Liked, rarely played: only worked out when you open it, since it needs all of
@@ -145,6 +193,24 @@ class Mixes {
     } finally {
       this.likedLoading = false;
     }
+  }
+}
+
+function readDiscovery(): { artists: Tile[]; tracks: Track[] } | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(DISCOVERY_CACHE) ?? "null");
+    if (!v || v.day !== today() || !Array.isArray(v.artists) || !Array.isArray(v.tracks)) return null;
+    return { artists: v.artists, tracks: v.tracks };
+  } catch {
+    return null;
+  }
+}
+
+function writeDiscovery(artists: Tile[], tracks: Track[]) {
+  try {
+    localStorage.setItem(DISCOVERY_CACHE, JSON.stringify({ day: today(), artists, tracks }));
+  } catch {
+    // Storage unavailable: it's worked out again next time.
   }
 }
 

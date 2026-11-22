@@ -10,7 +10,7 @@
   import { nav, type Route, type Tab } from "$lib/stores/nav.svelte";
   import { player } from "$lib/stores/player.svelte";
   import { BROWSE } from "$lib/ytm/api";
-  import { LIKED_RARELY, mixes } from "$lib/stores/mixes.svelte";
+  import { LIKED_RARELY, NEW_TO_YOU, mixes } from "$lib/stores/mixes.svelte";
 
   const win = getCurrentWindow();
   let maximized = $state(false);
@@ -41,7 +41,11 @@
   function titleOf(route: Route): string {
     if (route.kind === "home") return "Home";
     if (route.kind === "browse") return titles[shelfKey(route)] ?? "Loading…";
-    if (route.kind === "mix") return route.id === LIKED_RARELY ? "Liked, rarely played" : (mixes.get(route.id)?.title ?? "Mix");
+    if (route.kind === "mix") {
+      if (route.id === LIKED_RARELY) return "Liked, rarely played";
+      if (route.id === NEW_TO_YOU) return "New to you";
+      return mixes.get(route.id)?.title ?? "Mix";
+    }
     if (route.kind === "settings") return "Settings";
     if (route.kind === "albums") return "Albums";
     if (route.kind === "artists") return "Artists";

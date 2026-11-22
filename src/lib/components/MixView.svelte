@@ -7,7 +7,7 @@
   import SongRows from "./SongRows.svelte";
   import { playerCmd } from "$lib/ipc";
   import { dialog } from "$lib/stores/dialog.svelte";
-  import { LIKED_RARELY, coversOf, mixes } from "$lib/stores/mixes.svelte";
+  import { LIKED_RARELY, NEW_TO_YOU, coversOf, mixes } from "$lib/stores/mixes.svelte";
   import { nav } from "$lib/stores/nav.svelte";
   import { player } from "$lib/stores/player.svelte";
 
@@ -15,15 +15,24 @@
 
   const isLiked = $derived(id === LIKED_RARELY);
   const mix = $derived(isLiked ? mixes.likedRarely : mixes.get(id));
-  const loading = $derived(isLiked ? mixes.likedLoading || (!mixes.likedRarely && !mixes.likedError) : !mixes.loaded);
+  const isNew = $derived(id === NEW_TO_YOU);
+  const loading = $derived(
+    isLiked
+      ? mixes.likedLoading || (!mixes.likedRarely && !mixes.likedError)
+      : isNew
+        ? !mixes.discoveryDone
+        : !mixes.loaded,
+  );
   const error = $derived(isLiked ? mixes.likedError : mixes.error);
   const tracks = $derived(mix?.tracks ?? []);
 
   $effect(() => {
     const liked = isLiked;
+    const discovery = isNew;
     untrack(() => {
       mixes.load();
       if (liked) mixes.loadLikedRarely();
+      if (discovery) mixes.loadDiscovery();
     });
   });
   // A tab reopened from last time for a mix there isn't enough history for today becomes Home.
@@ -76,7 +85,9 @@
     </div>
   {:else if loading && !mix}
     <div class="state">
-      <span class="eyebrow">{isLiked ? "Going through your Liked Songs…" : "Loading…"}</span>
+      <span class="eyebrow">
+        {isLiked ? "Going through your Liked Songs…" : isNew ? "Finding artists like yours…" : "Loading…"}
+      </span>
     </div>
   {:else if !tracks.length}
     <div class="state">

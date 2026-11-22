@@ -95,6 +95,15 @@
     return Math.floor(p.getDuration?.() || 0);
   }
 
+  // The main artist's channel (UC…), from the queue item's byline links, when it has one.
+  function artistIdOf(queueData) {
+    for (const run of (queueData && queueData.longBylineText && queueData.longBylineText.runs) || []) {
+      const id = run.navigationEndpoint && run.navigationEndpoint.browseEndpoint && run.navigationEndpoint.browseEndpoint.browseId;
+      if (typeof id === "string" && id.startsWith("UC")) return id;
+    }
+    return null;
+  }
+
   let lastJson = "";
   let lastSentAt = 0;
   let lastVideoId = null;
@@ -121,6 +130,7 @@
       videoId,
       title: (qd && runsText(qd.title)) || vd.title || meta.title,
       artist: (qd && runsText(qd.shortBylineText)) || (metaFits && meta.artist) || vd.author || "",
+      artistId: artistIdOf(qd),
       album: metaFits ? meta.album || "" : "",
       artwork:
         (metaFits && pickArtwork(meta.artwork)) ||

@@ -6,6 +6,8 @@ export interface Playback {
   videoId: string | null;
   title: string;
   artist: string;
+  /** The main artist's channel (UC…), when the player links one. */
+  artistId?: string | null;
   album: string;
   artwork: string | null;
   playing: boolean;

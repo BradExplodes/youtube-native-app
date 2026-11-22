@@ -7,7 +7,7 @@
   import Shelves from "./Shelves.svelte";
   import { openLink } from "$lib/open";
   import { library } from "$lib/stores/library.svelte";
-  import { LIKED_RARELY, coversOf, mixes } from "$lib/stores/mixes.svelte";
+  import { LIKED_RARELY, NEW_TO_YOU, coversOf, mixes } from "$lib/stores/mixes.svelte";
   import { EXPLORE_LINKS, SHELF_PAGES } from "$lib/ytm/shelves";
   import type { Chip, Shelf, Tile } from "$lib/ytm/types";
 
@@ -32,8 +32,9 @@
   // "Made for you": the app's own mixes from your listening history, after YouTube
   // Music's first shelf (Quick picks). Not with a mood chip picked: they aren't moods.
   const madeForYou = $derived.by((): Shelf | null => {
-    if (library.homeChip || !mixes.list.length) return null;
-    const tiles: Tile[] = mixes.list.map((m) => ({
+    if (library.homeChip || (!mixes.list.length && !mixes.newToYou)) return null;
+    const all = mixes.newToYou ? [mixes.newToYou, ...mixes.list] : mixes.list;
+    const tiles: Tile[] = all.map((m) => ({
       kind: "playlist",
       title: m.title,
       subtitle: m.description,
@@ -52,11 +53,30 @@
     }
     return { title: "Made for you", strapline: "From your listening on this computer", tiles, tracks: [], buttons: [], grid: false };
   });
-  const homeShelves = $derived(
-    madeForYou ? [...home.shelves.slice(0, 1), madeForYou, ...home.shelves.slice(1)] : home.shelves,
-  );
+  // Artists like the ones you play most (from their "Fans might also like").
+  const similar = $derived.by((): Shelf | null => {
+    if (library.homeChip || mixes.similarArtists.length < 4) return null;
+    return {
+      title: "Artists you might like",
+      strapline: "Fans of your favourites also listen to",
+      tiles: mixes.similarArtists,
+      tracks: [],
+      buttons: [],
+      grid: false,
+    };
+  });
+  const homeShelves = $derived([
+    ...home.shelves.slice(0, 1),
+    ...(madeForYou ? [madeForYou] : []),
+    ...(similar ? [similar] : []),
+    ...home.shelves.slice(1),
+  ]);
   $effect(() => {
     untrack(() => mixes.load());
+  });
+  // Discovery fetches a dozen or so pages: start it once YouTube Music's own Home is in.
+  $effect(() => {
+    if (home.loaded) untrack(() => mixes.loadDiscovery());
   });
 
   $effect(() => {
