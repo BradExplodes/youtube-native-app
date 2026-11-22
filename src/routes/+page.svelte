@@ -3,6 +3,8 @@
   import AlbumsView from "$lib/components/AlbumsView.svelte";
   import ArtistView from "$lib/components/ArtistView.svelte";
   import ArtistsView from "$lib/components/ArtistsView.svelte";
+  import BrowseView from "$lib/components/BrowseView.svelte";
+  import HomeView from "$lib/components/HomeView.svelte";
   import ContextMenu from "$lib/components/ContextMenu.svelte";
   import Dialogs from "$lib/components/Dialogs.svelte";
   import LoginPrompt from "$lib/components/LoginPrompt.svelte";
@@ -91,8 +93,12 @@
       </div>
     {:else if player.loggedIn}
       {#key nav.activeId}
-        {#if nav.route.kind === "list"}
+        {#if nav.route.kind === "home"}
+          <HomeView />
+        {:else if nav.route.kind === "list"}
           <TrackListView browseId={nav.route.browseId} />
+        {:else if nav.route.kind === "browse"}
+          <BrowseView browseId={nav.route.browseId} params={nav.route.params} />
         {:else if nav.route.kind === "artist"}
           <ArtistView browseId={nav.route.browseId} />
         {:else if nav.route.kind === "albums"}

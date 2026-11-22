@@ -121,7 +121,7 @@ export function rowExtras(item: Raw): Pick<Track, "liked" | "setVideoId"> {
 }
 
 /** The continuation token at the end of a list's items, if there are more. */
-function tokenIn(items: Raw[] | undefined, legacy?: Raw): string | undefined {
+export function tokenIn(items: Raw[] | undefined, legacy?: Raw): string | undefined {
   const last = items?.[items.length - 1];
   return (
     last?.continuationItemRenderer?.continuationEndpoint?.continuationCommand?.token ??

@@ -6,7 +6,7 @@
   import { editPlaylistDetails, playlistMenu, songMenu } from "$lib/menus";
   import { library } from "$lib/stores/library.svelte";
   import { menu } from "$lib/stores/menu.svelte";
-  import { nav } from "$lib/stores/nav.svelte";
+  import { nav, notFound } from "$lib/stores/nav.svelte";
   import { player } from "$lib/stores/player.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { BROWSE } from "$lib/ytm/api";
@@ -29,6 +29,12 @@
 
   $effect(() => {
     page.load();
+  });
+  // A tab reopened from last time whose playlist is gone (deleted elsewhere) becomes Home.
+  $effect(() => {
+    const route = { kind: "list", browseId } as const;
+    if (info && (info.title || page.tracks.length || browseId === BROWSE.likedSongs)) nav.loaded(route);
+    else if (info || (page.error && notFound(page.error))) nav.missing(route);
   });
 
   // ---- find in this list: every word must appear in the title, artists or album,

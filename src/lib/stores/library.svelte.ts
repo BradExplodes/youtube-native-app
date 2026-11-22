@@ -12,9 +12,10 @@ import {
   parseTrackListPage,
 } from "$lib/ytm/parse";
 import { parseArtistPage } from "$lib/ytm/search";
+import { EXPLORE_LINKS, parseShelfContinuation, parseShelfPage } from "$lib/ytm/shelves";
 import { likes } from "$lib/stores/likes.svelte";
 import { ui } from "$lib/stores/ui.svelte";
-import type { ArtistPage, Card, LibraryArtist, Track, TrackListPage } from "$lib/ytm/types";
+import type { ArtistPage, BrowseLink, Card, Chip, LibraryArtist, Shelf, Track, TrackListPage } from "$lib/ytm/types";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -181,12 +182,92 @@ export class ArtistPageStore {
   }
 }
 
+/** The key a page of shelves is kept (and titled) under: its browse id, plus params if any. */
+export const shelfKey = (link: BrowseLink) => (link.params ? `${link.browseId}|${link.params}` : link.browseId);
+
+/** A page of shelves: Home (per mood chip), Explore, a genre, the charts…
+ *  More shelves load as you scroll. */
+export class ShelfPageStore {
+  title = $state("");
+  chips = $state.raw<Chip[]>([]);
+  shelves = $state.raw<Shelf[]>([]);
+  loading = $state(false);
+  loaded = $state(false);
+  error = $state<string | null>(null);
+  private continuation = $state<string | undefined>(undefined);
+  private loadedAt = 0;
+
+  constructor(readonly link: BrowseLink) {}
+
+  get hasMore() {
+    return !!this.continuation;
+  }
+
+  async load() {
+    if (this.loading || this.loaded) return;
+    await this.fetchFirst();
+  }
+
+  /** Fetch it again if it's older than `maxAgeMs` (keeping the old shelves on screen meanwhile). */
+  async refreshIfOlder(maxAgeMs: number) {
+    if (this.loaded && !this.loading && Date.now() - this.loadedAt > maxAgeMs) await this.fetchFirst();
+  }
+
+  private async fetchFirst() {
+    this.loading = true;
+    this.error = null;
+    try {
+      const page = parseShelfPage(await browseRaw(this.link));
+      this.title = page.title;
+      // Some pages (the charts) have no heading of their own: name their tab anyway.
+      titles[shelfKey(this.link)] =
+        page.title || EXPLORE_LINKS.find((l) => l.browseId === this.link.browseId)?.title || "Explore";
+      this.chips = page.chips;
+      this.shelves = page.shelves;
+      this.continuation = page.continuation;
+      this.loaded = true;
+      this.loadedAt = Date.now();
+    } catch (e) {
+      this.error = message(e);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  /** Fetch the next shelves (called when scrolling near the end). */
+  async more() {
+    if (this.loading || !this.continuation) return;
+    this.loading = true;
+    this.error = null;
+    try {
+      const batch = parseShelfContinuation(await browseRaw({ continuation: this.continuation }));
+      this.shelves = [...this.shelves, ...batch.shelves];
+      // A token that leads nowhere new would otherwise be asked for forever.
+      this.continuation = batch.shelves.length ? batch.continuation : undefined;
+    } catch (e) {
+      this.error = message(e);
+    } finally {
+      this.loading = false;
+    }
+  }
+}
+
 class Library {
   playlists = new Collection<Card>(BROWSE.playlists, parseLibraryPlaylists, parseLibraryPlaylistsContinuation);
   albums = new Collection<Card>(BROWSE.albums, parseLibraryAlbums, parseLibraryAlbumsContinuation);
   artists = new Collection<LibraryArtist>(BROWSE.artists, parseLibraryArtists, parseLibraryArtistsContinuation);
   private pages = new Map<string, TrackPage>();
   private artistPages = new Map<string, ArtistPageStore>();
+  private shelfPages = new Map<string, ShelfPageStore>();
+  /** The mood chip picked on Home ("Energize", "Relax"…), as its params. Kept for the session. */
+  homeChip = $state<string | undefined>(undefined);
+
+  shelfPage(link: BrowseLink): ShelfPageStore {
+    const key = shelfKey(link);
+    let p = this.shelfPages.get(key);
+    if (!p) this.shelfPages.set(key, (p = new ShelfPageStore(link)));
+    return p;
+  }
 
   artist(browseId: string): ArtistPageStore {
     let p = this.artistPages.get(browseId);

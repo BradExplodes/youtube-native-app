@@ -98,9 +98,11 @@ function rowTile(r: Raw, typed: boolean): Tile | null {
   };
 }
 
-type Row = { track: Track; kind: "song" | "video" } | { tile: Tile };
+export type Row = { track: Track; kind: "song" | "video" } | { tile: Tile };
 
-function parseRow(item: Raw, typed: boolean, fallbackArtist?: string): Row | null {
+/** A row of a list (musicResponsiveListItemRenderer): a song or video, or an album,
+ *  playlist or artist. `typed`: a plain search's rows, whose details start with the kind. */
+export function parseRow(item: Raw, typed: boolean, fallbackArtist?: string): Row | null {
   const r = item?.musicResponsiveListItemRenderer;
   if (!r) return null;
   if (videoIdOf(r) && !r.navigationEndpoint?.browseEndpoint) {
@@ -190,7 +192,7 @@ export function parseSearchContinuation(raw: Raw): SearchBatch {
 // ------------------------------------------------------------------ artist pages
 
 /** A card in a carousel (musicTwoRowItemRenderer). */
-function twoRowTile(r: Raw): Tile | null {
+export function twoRowTile(r: Raw): Tile | null {
   if (!r) return null;
   const base = { title: text(r.title), subtitle: text(r.subtitle) };
   const browse = r.navigationEndpoint?.browseEndpoint;
@@ -201,6 +203,9 @@ function twoRowTile(r: Raw): Tile | null {
   const videoId = r.navigationEndpoint?.watchEndpoint?.videoId;
   const wk = videoId && watchKind(r.navigationEndpoint);
   if (videoId && wk) return { ...base, kind: wk, videoId, thumbnail: pickThumbnail(thumbnailsOf(r), 320) };
+  // A mix that only plays (My Supermix and other radios have no page of their own).
+  const playlistId = r.navigationEndpoint?.watchPlaylistEndpoint?.playlistId;
+  if (playlistId) return { ...base, kind: "playlist", playlistId, thumbnail: pickThumbnail(thumbnailsOf(r), 226) };
   return null;
 }
 

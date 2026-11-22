@@ -92,6 +92,8 @@ export interface Tile {
   browseId?: string;
   /** To play it (songs and videos). */
   videoId?: string;
+  /** To play it as a whole: a mix that has no page of its own (e.g. My Supermix). */
+  playlistId?: string;
 }
 
 /** Everything a plain search finds, by kind. */
@@ -124,4 +126,52 @@ export interface ArtistPage {
   /** The full "Top songs" playlist page (VL…), also what Play plays. */
   allSongsId?: string;
   shelves: { title: string; tiles: Tile[] }[];
+}
+
+/** Where a shelf title, chip or genre button leads: a browse page, maybe narrowed by params. */
+export interface BrowseLink {
+  browseId: string;
+  params?: string;
+}
+
+/** A genre or mood button (Moods & genres), or a shortcut such as "Charts". */
+export interface NavButton {
+  title: string;
+  /** The coloured stripe YouTube Music gives genre buttons, as #rrggbb. */
+  color?: string;
+  link: BrowseLink;
+}
+
+/** One row of a page of shelves (Home, Explore, a genre, the charts). */
+export interface Shelf {
+  title: string;
+  /** A small line above the title, e.g. "Start radio from a song" or your name. */
+  strapline?: string;
+  /** "More" / the title's own link, when the shelf has a page with everything in it. */
+  more?: BrowseLink;
+  /** Songs show as compact rows (Quick picks, top songs); everything else as cards. */
+  tracks: Track[];
+  tiles: Tile[];
+  buttons: NavButton[];
+  /** Laid out as a grid that wraps, rather than one row that scrolls sideways. */
+  grid: boolean;
+}
+
+/** A mood filter at the top of Home ("Energize", "Relax"…). */
+export interface Chip {
+  title: string;
+  params?: string;
+  selected: boolean;
+}
+
+export interface ShelfPage {
+  title: string;
+  chips: Chip[];
+  shelves: Shelf[];
+  continuation?: string;
+}
+
+export interface ShelfBatch {
+  shelves: Shelf[];
+  continuation?: string;
 }

@@ -3,7 +3,7 @@
 // (src/lib/ytm/__fixtures__/raw, gitignored) and a pretend player. Never in the real app.
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
-import { parseLibraryPlaylists, parseTrackListPage } from "$lib/ytm/parse";
+import { findKey, parseLibraryPlaylists, parseTrackListPage } from "$lib/ytm/parse";
 
 const raw = import.meta.glob("$lib/ytm/__fixtures__/raw/*.json", { eager: true, import: "default" });
 const fixture = (name: string): unknown =>
@@ -15,6 +15,87 @@ const BY_BROWSE_ID: Record<string, string> = {
   FEmusic_liked_albums: "library_albums",
   FEmusic_library_corpus_track_artists: "library_artists",
 };
+
+// Home and Explore: the saved responses if there are any (capture.ts), otherwise
+// pretend pages put together from your library's saved responses.
+const SHELF_FIXTURES: Record<string, string> = {
+  FEmusic_home: "home",
+  FEmusic_explore: "explore",
+  FEmusic_charts: "charts",
+  FEmusic_moods_and_genres: "moods_and_genres",
+  FEmusic_moods_and_genres_category: "genre",
+};
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const runs = (text: string) => ({ runs: [{ text }] });
+const endpoint = (browseId: string, params?: string) => ({ browseEndpoint: { browseId, ...(params && { params }) } });
+const carousel = (title: string, contents: any[], strapline?: string) => ({
+  musicCarouselShelfRenderer: {
+    header: { musicCarouselShelfBasicHeaderRenderer: { title: runs(title), ...(strapline && { strapline: runs(strapline) }) } },
+    contents,
+  },
+});
+const grid = (title: string, items: any[]) => ({ gridRenderer: { header: { gridHeaderRenderer: { title: runs(title) } }, items } });
+const GENRES: [string, number][] = [
+  ["Chill", 0xff4caf50], ["Commute", 0xff2196f3], ["Energize", 0xffff9800], ["Feel good", 0xffffeb3b],
+  ["Focus", 0xff9c27b0], ["Party", 0xffe91e63], ["Romance", 0xfff44336], ["Sleep", 0xff3f51b5],
+  ["Workout", 0xffff5722], ["Rock", 0xff795548], ["Hip-hop", 0xff607d8b], ["Jazz", 0xff00bcd4],
+];
+const genreButtons = () =>
+  GENRES.map(([title, color], i) => ({
+    musicNavigationButtonRenderer: {
+      buttonText: runs(title),
+      solid: { leftStripeColor: color },
+      clickCommand: endpoint("FEmusic_moods_and_genres_category", `preview-genre-${i}`),
+    },
+  }));
+const page = (sections: any[], extra: any = {}) => ({
+  ...extra,
+  contents: { singleColumnBrowseResultsRenderer: { tabs: [{ tabRenderer: { content: { sectionListRenderer: { ...extra.list, contents: sections } } } }] } },
+});
+
+function sampleShelfPage(browseId: string, params?: string): unknown {
+  const songs: any[] = (findKey(fixture("liked_songs"), "musicPlaylistShelfRenderer")?.contents ?? []).filter(
+    (i: any) => i.musicResponsiveListItemRenderer,
+  );
+  const cards: any[] = (findKey(fixture("library_playlists"), "gridRenderer")?.items ?? []).filter(
+    (i: any) => i.musicTwoRowItemRenderer?.navigationEndpoint?.browseEndpoint?.browseId?.startsWith("VL"),
+  );
+  const artistShelves: any[] = (findKey(fixture("artist_page"), "sectionListRenderer")?.contents ?? []).filter(
+    (s: any) => s.musicCarouselShelfRenderer,
+  );
+  if (browseId === "FEmusic_home") {
+    const chips = ["Energize", "Relax", "Workout", "Focus", "Commute"].map((t, i) => ({
+      chipCloudChipRenderer: {
+        text: runs(t),
+        navigationEndpoint: endpoint("FEmusic_home", `preview-chip-${i}`),
+        ...(params === `preview-chip-${i}` && { isSelected: true }),
+      },
+    }));
+    const shelves = params
+      ? [carousel("Quick picks", songs.slice(8, 24)), carousel("Mixes for this mood", cards.slice(4, 12))]
+      : [
+          carousel("Quick picks", songs.slice(0, 20), "Start radio from a song"),
+          carousel("Mixed for you", cards.slice(0, 8)),
+          ...artistShelves.slice(0, 3),
+          carousel("Listen again", [...cards.slice(8, 14)], "Your library"),
+        ];
+    return page(shelves, { list: { header: { chipCloudRenderer: { chips } } } });
+  }
+  if (browseId === "FEmusic_explore") {
+    return page([
+      ...artistShelves.slice(0, 1),
+      carousel("Moods & genres", genreButtons()),
+      carousel("Trending", songs.slice(20, 40)),
+    ]);
+  }
+  if (browseId === "FEmusic_moods_and_genres") return page([grid("Moods & moments", genreButtons().slice(0, 9)), grid("Genres", genreButtons().slice(9))]);
+  const title = browseId === "FEmusic_moods_and_genres_category" ? GENRES[Number(params?.split("-").pop())]?.[0] ?? "Genre" : "";
+  return page([carousel("Featured playlists", cards.slice(0, 10)), grid("Community playlists", cards.slice(10, 30)), ...artistShelves.slice(0, 2)], {
+    ...(title && { header: { musicHeaderRenderer: { title: runs(title) } } }),
+  });
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function install() {
   mockWindows("main");
@@ -89,6 +170,10 @@ export function install() {
           if (req.continuation) return (req.search && songs?.next) || {};
           if (req.query) return (req.params ? songs?.first : fixture("search_linkin_park")) ?? {};
           if (req.browseId?.startsWith("UC")) return fixture("artist_page") ?? {};
+          if (req.browseId in SHELF_FIXTURES || req.browseId === "FEmusic_new_releases") {
+            const saved = !req.params || req.browseId !== "FEmusic_home" ? fixture(SHELF_FIXTURES[req.browseId]) : undefined;
+            return saved ?? sampleShelfPage(req.browseId, req.params);
+          }
           const name = BY_BROWSE_ID[req.browseId];
           // Any other page: the saved playlist / album / library artist sample.
           const fallback = req.browseId?.startsWith("MPRE")

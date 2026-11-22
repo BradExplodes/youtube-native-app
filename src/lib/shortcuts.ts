@@ -134,6 +134,13 @@ export const SHORTCUTS: Shortcut[] = [
     run: () => ui.toggleSidebar(),
   },
   {
+    keys: ["Alt", "Home"],
+    label: "Home",
+    group: "Pages and panels",
+    match: (e) => e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey && e.key === "Home",
+    run: () => nav.go({ kind: "home" }),
+  },
+  {
     keys: ["Ctrl", ","],
     label: "Settings",
     group: "Pages and panels",

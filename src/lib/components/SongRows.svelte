@@ -14,14 +14,24 @@
   import { player } from "$lib/stores/player.svelte";
   import type { Track } from "$lib/ytm/types";
 
-  let { tracks, play, numbered = false }: { tracks: Track[]; play: (index: number) => void; numbered?: boolean } =
-    $props();
+  let {
+    tracks,
+    play,
+    numbered = false,
+    compact = false,
+  }: {
+    tracks: Track[];
+    play: (index: number) => void;
+    numbered?: boolean;
+    /** Just artwork, title, artists and the heart (for blocks of songs on Home). */
+    compact?: boolean;
+  } = $props();
 
   const current = $derived(player.playback?.videoId);
   const playing = $derived(!!player.playback?.playing);
 </script>
 
-<div class="rows" class:numbered role="table" use:arrowNav={{ selector: ".row" }}>
+<div class="rows" class:numbered class:compact role="table" use:arrowNav={{ selector: ".row", orientation: compact ? "grid" : "vertical" }}>
   {#each tracks as t, i (t.videoId + i)}
     {@const isCurrent = t.videoId === current}
     {@const liked = likes.get(t.videoId)}
@@ -58,9 +68,11 @@
           <ArtistLinks artists={t.artists} />
         </span>
       </span>
-      <span class="album truncate">
-        {#if t.album}<button class="link" onclick={() => openAlbum(t.album!.id)}>{t.album.name}</button>{/if}
-      </span>
+      {#if !compact}
+        <span class="album truncate">
+          {#if t.album}<button class="link" onclick={() => openAlbum(t.album!.id)}>{t.album.name}</button>{/if}
+        </span>
+      {/if}
       <button
         class="like"
         class:on={liked}
@@ -71,7 +83,7 @@
       >
         <Heart size={16} fill={liked ? "currentColor" : "none"} />
       </button>
-      <span class="dur">{t.duration ?? ""}</span>
+      {#if !compact}<span class="dur">{t.duration ?? ""}</span>{/if}
     </div>
   {/each}
 </div>
@@ -95,6 +107,9 @@
   }
   .numbered .row {
     grid-template-columns: 44px 18px minmax(0, 5fr) minmax(0, 3fr) 30px 48px;
+  }
+  .compact .row {
+    grid-template-columns: 44px minmax(0, 1fr) 30px;
   }
   .row:hover,
   .row:focus-visible {

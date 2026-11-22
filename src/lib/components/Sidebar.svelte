@@ -2,7 +2,7 @@
   // Collapsible: a slim icon rail, or the rail plus labels and your playlists.
   import { arrowNav } from "$lib/a11y";
   import Artwork from "./Artwork.svelte";
-  import { Disc3, Heart, MicVocal, PanelLeftClose, PanelLeftOpen, Pin, Plus, Search } from "@lucide/svelte";
+  import { Disc3, Heart, House, MicVocal, PanelLeftClose, PanelLeftOpen, Pin, Plus, Search } from "@lucide/svelte";
   import Equalizer from "./Equalizer.svelte";
   import { playlistMenu } from "$lib/menus";
   import { dialog } from "$lib/stores/dialog.svelte";
@@ -21,6 +21,7 @@
   const playingFrom = (browseId: string) => player.context === browseId && !!player.playback;
 
   const main: { label: string; route: Route; icon: typeof Heart }[] = [
+    { label: "Home", route: { kind: "home" }, icon: House },
     { label: "Liked Songs", route: { kind: "list", browseId: BROWSE.likedSongs }, icon: Heart },
     { label: "Albums", route: { kind: "albums" }, icon: Disc3 },
     { label: "Artists", route: { kind: "artists" }, icon: MicVocal },

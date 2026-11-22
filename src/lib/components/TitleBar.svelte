@@ -4,9 +4,9 @@
   import { arrowNav } from "$lib/a11y";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
-  import { Copy, Disc3, Heart, Library, ListMusic, MicVocal, Minus, Settings, Square, X } from "@lucide/svelte";
+  import { Compass, Copy, Disc3, Heart, House, Library, ListMusic, MicVocal, Minus, Settings, Square, X } from "@lucide/svelte";
   import Equalizer from "./Equalizer.svelte";
-  import { library, titles } from "$lib/stores/library.svelte";
+  import { library, shelfKey, titles } from "$lib/stores/library.svelte";
   import { nav, type Route, type Tab } from "$lib/stores/nav.svelte";
   import { player } from "$lib/stores/player.svelte";
   import { BROWSE } from "$lib/ytm/api";
@@ -23,6 +23,8 @@
   });
 
   function kindOf(route: Route): { label: string; icon: typeof Heart } {
+    if (route.kind === "home") return { label: "Discover", icon: House };
+    if (route.kind === "browse") return { label: "Explore", icon: Compass };
     if (route.kind === "settings") return { label: "App", icon: Settings };
     if (route.kind === "albums") return { label: "Library", icon: Disc3 };
     if (route.kind === "artists") return { label: "Library", icon: Library };
@@ -35,6 +37,8 @@
   }
 
   function titleOf(route: Route): string {
+    if (route.kind === "home") return "Home";
+    if (route.kind === "browse") return titles[shelfKey(route)] ?? "Loading…";
     if (route.kind === "settings") return "Settings";
     if (route.kind === "albums") return "Albums";
     if (route.kind === "artists") return "Artists";

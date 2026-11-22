@@ -12,7 +12,8 @@
 
   let { tile }: { tile: Tile } = $props();
 
-  const playable = $derived(tile.kind === "song" || tile.kind === "video");
+  // Songs, videos and mixes without a page of their own play when clicked.
+  const playable = $derived(tile.kind === "song" || tile.kind === "video" || (!!tile.playlistId && !tile.browseId));
   const isCurrent = $derived(playable && !!tile.videoId && tile.videoId === player.playback?.videoId);
 
   /** Songs and videos get the song menu, playlists the playlist menu. */

@@ -6,7 +6,7 @@
   import TileCard from "./TileCard.svelte";
   import { playerCmd } from "$lib/ipc";
   import { library } from "$lib/stores/library.svelte";
-  import { nav } from "$lib/stores/nav.svelte";
+  import { nav, notFound } from "$lib/stores/nav.svelte";
   import { player } from "$lib/stores/player.svelte";
 
   let { browseId }: { browseId: string } = $props();
@@ -15,6 +15,12 @@
   const info = $derived(page.info);
   $effect(() => {
     page.load();
+  });
+  // A tab reopened from last time for an artist page that's gone becomes Home.
+  $effect(() => {
+    const route = { kind: "artist", browseId } as const;
+    if (info?.name) nav.loaded(route);
+    else if (info || (page.error && notFound(page.error))) nav.missing(route);
   });
 
   // Top songs play inside their own playlist, so the queue carries on through them.

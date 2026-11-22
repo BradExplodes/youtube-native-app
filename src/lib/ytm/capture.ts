@@ -2,6 +2,7 @@
 // fixtures (to a gitignored folder), so the parsers are written against real data.
 import { invoke } from "@tauri-apps/api/core";
 import { BROWSE, browseRaw, type Raw } from "./api";
+import { EXPLORE_LINKS, SHELF_PAGES } from "./shelves";
 
 const save = (name: string, data: Raw) => invoke("dev_save_fixture", { name, data });
 
@@ -62,6 +63,21 @@ export async function captureFixtures() {
   if (libraryArtistId) await step("library_artist", () => browseRaw({ browseId: libraryArtistId }));
   const artistId = findDeep(liked, browseIdLike("UC"));
   if (artistId) await step("artist", () => browseRaw({ browseId: artistId }));
+
+  // Home and Explore.
+  const home = await step("home", () => browseRaw({ browseId: SHELF_PAGES.home }));
+  const homeToken = home && findDeep(home, continuationToken);
+  if (homeToken) await step("home_continuation", () => browseRaw({ continuation: homeToken }));
+  await step("explore", () => browseRaw({ browseId: SHELF_PAGES.explore }));
+  const [, charts, moodsId] = EXPLORE_LINKS.map((l) => l.browseId);
+  await step("charts", () => browseRaw({ browseId: charts }));
+  const moods = await step("moods_and_genres", () => browseRaw({ browseId: moodsId }));
+  const genreParams =
+    moods &&
+    findDeep(moods, (k, v) =>
+      k === "browseEndpoint" && v?.browseId === "FEmusic_moods_and_genres_category" && typeof v.params === "string" ? (v.params as string) : undefined,
+    );
+  if (genreParams) await step("genre", () => browseRaw({ browseId: "FEmusic_moods_and_genres_category", params: genreParams }));
 
   await save("_capture_log", { log });
 }
