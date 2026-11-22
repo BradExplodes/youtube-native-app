@@ -10,6 +10,8 @@
 
 The YouTube Music website in a browser tab works, but it's heavy and doesn't feel like a desktop app. This is a native shell built with [Tauri](https://tauri.app/) and [Svelte](https://svelte.dev/). It has its own fast library UI, and playback still runs through YouTube Music itself, so your account, likes, playlists and recommendations all work as normal.
 
+Designed to be as lightweight as possible, targeting 20-60MB of RAM used while music playback is active.
+
 > **Unofficial.** This project isn't affiliated with, endorsed by or connected to Google or YouTube. You need your own YouTube Music account, and a Premium account for ad-free and background playback.
 
 ## Features
