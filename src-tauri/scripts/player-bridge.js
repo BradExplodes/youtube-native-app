@@ -27,7 +27,8 @@
   };
 
   const player = () => document.getElementById("movie_player");
-  const video = () => document.querySelector("video");
+  // The player's own element first: there can be more than one <video> on the page.
+  const video = () => player()?.querySelector("video") || document.querySelector("video");
   // Position within the current track. Not `video.currentTime`: with gapless playback
   // YouTube Music appends the next track to the same stream, so the element's clock
   // keeps counting from the first track.
@@ -318,12 +319,14 @@
   // The speed you picked, on what's actually playing. YouTube Music resets the <video>
   // element to its own setting (normal) when a track loads and again shortly after,
   // while its player object can go on reporting our speed, so the element is the truth.
+  // Every <video> on the page, not just the first: YouTube can hold more than one
+  // (e.g. lining up the next track), and the one we checked wasn't always the one playing.
   const rateOff = (v) => Math.abs(v.playbackRate - wantRate) > 0.001;
   function enforceRate() {
-    const v = video();
-    if (!v || !rateOff(v)) return;
+    const off = [...document.querySelectorAll("video")].filter(rateOff);
+    if (!off.length) return;
     player()?.setPlaybackRate?.(wantRate);
-    if (rateOff(v)) v.playbackRate = wantRate;
+    for (const v of off) if (rateOff(v)) v.playbackRate = wantRate;
   }
 
   // The playlist the current music was started from (as loaded, before any shuffle).
@@ -344,20 +347,30 @@
   }, true);
   // A new track: put the speed back before a note plays at the wrong one.
   for (const ev of ["loadstart", "loadedmetadata", "canplay"]) document.addEventListener(ev, enforceRate, true);
-  // YouTube Music also puts its own speed (normal) back a moment after a track starts.
-  // Undo that, at most a few times per track so we can never end up fighting it.
-  let rateFixTrack = null;
-  let rateFixes = 0;
+  // YouTube Music also puts its own speed (normal) back a moment after a track starts,
+  // and again when it lines up the next track near the end (gapless playback). Undo it
+  // at once, but only a few times in quick succession so we can never get into a tight
+  // fight with it. This used to be a budget per track, which could run out mid-song and
+  // leave the rest of it at normal speed.
+  let quickFixes = [];
   document.addEventListener("ratechange", (e) => {
     const v = e.target;
     if (!(v instanceof HTMLMediaElement) || !rateOff(v)) return;
-    const id = player()?.getVideoData?.()?.video_id ?? null;
-    if (id !== rateFixTrack) {
-      rateFixTrack = id;
-      rateFixes = 0;
-    }
-    if (++rateFixes > 8) return;
+    const now = Date.now();
+    quickFixes = quickFixes.filter((t) => now - t < 5000);
+    if (quickFixes.length >= 8) return;
+    quickFixes.push(now);
     setTimeout(enforceRate, 0);
+  }, true);
+  // The steady check, so a reset never sticks for more than a second whatever caused it.
+  // Tied to playback (timeupdate fires a few times a second while playing), not a timer,
+  // which the hidden window may throttle.
+  let rateCheckedAt = 0;
+  document.addEventListener("timeupdate", () => {
+    const now = Date.now();
+    if (now - rateCheckedAt < 1000) return;
+    rateCheckedAt = now;
+    enforceRate();
   }, true);
   document.addEventListener("pause", (e) => {
     if (!holdPaused) return;
@@ -533,7 +546,7 @@
     rate: ({ value }) => {
       const rate = Number(value);
       wantRate = Number.isFinite(rate) ? Math.max(0.25, Math.min(2, rate)) : 1;
-      rateFixes = 0;
+      quickFixes = [];
       enforceRate();
     },
     repeat: ({ mode }) => {
